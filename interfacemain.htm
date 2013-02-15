@@ -14,9 +14,8 @@
 	<p data-bind="text:f1"></p>
 	<p data-bind="text:rel1.value"></p>
 	<p data-bind="text:rel1().f2"></p>
-	<p data-bind="text:rel12().f2"></p>
 		<div data-bind="foreach:rel12()">
-			<>
+			<p data-bind="text:f2"></p>
 		</div>
 	<p data-bind="text:rel1().rel2.value"></p>
 	<p data-bind="text:rel1().rel2().f3"></p>
@@ -42,7 +41,7 @@
 			id:{name:'id'},
 			f1:{name:'Ф 1'},
 			rel1:{name:'Рел 1',target:'T2'},
-			rel12:{name:'Рел 12',target:'T2'}
+			rel12:{name:'Рел 12',target:'T2',where:{'year=2012'}}
 		},
 		T2:{
 			name:'T2',
@@ -81,7 +80,23 @@
 	T1 = ko.observableArray({id, f1, rel1().id, rel1().f2, rel1().rel2(), rel1().rel2().id, rel1.rel2().f3 })
 	T1 = ko.observableArray({ id, f1, rel1() })
 	*/
-
+	function tableNode(tableObject) {
+		var self = this;
+		self[tableObject.name] = addition(ko.observableArray());
+		for(var fieldName in tableObject) {
+			var fieldObj = tableObject[fieldName];
+			if(fieldObj.target) {
+				self[fieldName] = function() { return self[fieldName].cache || (self[fieldName].cache = new rowModel(fieldObj.target)); }
+				self[fieldName].value = ko.observable('');
+				self[fieldName].value.$ = fieldObj;
+			} else 
+			if(fieldObj.name) {
+				self[fieldName] = ko.observable('');
+				self[fieldName].$ = fieldObj;
+			}
+		}
+	}
+	
 	function rowModel(tableObject) {
 		var self = this;
 		self.$ = tableObject;
@@ -216,11 +231,8 @@
 			this().push(this.model);
 			return this.usage;
 		}
-		koArray.sendQuery = function(/*where,group,order*/) {//вызывается первым
-			var sql = makeSQL(this.model);//на основании модели построит запрос
-			//sql.where = where || sql.where;
-			//sql.group = group || sql.group;
-			//sql.order = order || sql.order;
+		koArray.sendQuery = function() {//вызывается первым
+			this.sql = this.sql || makeSQL(this.model);//на основании модели построит запрос
 			sendSqlRequest(sql, takeAnswer, this);//посылаем запрос
 		}
 		koArray.addElement();
