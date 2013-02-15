@@ -1,10 +1,10 @@
 ﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-<script type='text/javascript' src='knockout-2.2.1.debug.js'></script>
-<script type='text/javascript' src='knockout.validation.js'></script>
-<script type='text/javascript' src='sko.js'></script>
-<link rel=stylesheet type="text/css" href="sko.css">
+<script type='text/javascript' src='knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='knockout/sko.js'></script>
+<link rel=stylesheet type="text/css" href="knockout/sko.css">
 <style>
 </style>
 </head>
@@ -216,12 +216,12 @@
 			this().push(this.model);
 			return this.usage;
 		}
-		koArray.sendQuery = function(where,group,order) {//вызывается первым
-			var sql = makeSQL(this.model);
-			sql.where = where || sql.where;
-			sql.group = group || sql.group;
-			sql.order = order || sql.order;
-			sendSqlRequest(sql, takeAnswer, this);
+		koArray.sendQuery = function(/*where,group,order*/) {//вызывается первым
+			var sql = makeSQL(this.model);//на основании модели построит запрос
+			//sql.where = where || sql.where;
+			//sql.group = group || sql.group;
+			//sql.order = order || sql.order;
+			sendSqlRequest(sql, takeAnswer, this);//посылаем запрос
 		}
 		koArray.addElement();
 		return koArray;
@@ -233,15 +233,18 @@
 			}
 		}
 	}
-	function modelArray(tableName) {
+	function multiObject(tableName) {
 		var koModel = {};
-		koModel[tableName] = addition(ko.observableArray());
+		var array = ko.observableArray();
+		array.$ = metaModel[tableName];
+		koModel[tableName] = addition(array);
+		return koModel;
 	}
-	function modelObject() {
-		
+	function singleObject(tableName) {
+		return new rowModel(metaModel[tableName]);
 	}
 	void Init() {
-		var model1 = modelArray('T1');//or var model2 = modelObject('T1');
+		var model1 = multiObject('T1');//or var model2 = singleObject('T1');
 		ko.applyBindings(model);
 		sendQuery(model);
 	}
