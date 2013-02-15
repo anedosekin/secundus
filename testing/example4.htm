@@ -1,0 +1,66 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout.validation.js'></script>
+<script type='text/javascript' src='sko.js'></script>
+<link rel=stylesheet type="text/css" href="sko.css">
+<style>
+</style>
+</head>
+<body>
+
+<div data-bind="relation:{ value: relVal, data: tableData, header: tableHead, hideempty: true }"></div>
+<input data-bind="value: validVar">
+<script type="text/html" id="relation-template">
+	<div class=relation>
+		<input type=hidden data-bind="value:$rel.value">
+		<input data-bind='value: $rel.text, valueUpdate: "afterkeydown", event:{keydown:$rel.acceptItem, blur:$rel.lostFocus}'/>
+		<table data-bind='visible: $rel.text && $rel.inputChanged, event:{mousedown:$rel.gotFocus}' cellspacing="0" cellpadding="0" border="0">
+			<thead>
+				<tr data-bind='foreach:$rel.tableHead, visible:$rel.tableRows().length && $rel.tableRows()[0].length>2'><th><span data-bind='text:$data'></span></th>
+			</thead>
+			<tbody data-bind="foreach:$rel.tableRows">
+				<tr class=tablerow data-bind="click: $rel.chooseItem, css:{ current: $index()==$rel.currentIndex() }, foreach:$data"><td data-bind="text:$data"></tr>
+			</tbody>
+		</table>
+	</div>
+</script>
+
+<script>
+	
+	var headers = ['Код','Имя','Какая-то очень длинная Фамилия','Возраст','Вес','Знания'];
+	var maindata1 = [
+	['КЛ01001','Владимир','Третьяк','','31',''],
+	['КЛ01002','Владимир','Иванов','','25',''],
+	['КЛ01003','Александр','Треногин','','53',''],
+	['КЛ01004','Андрей','Саламатин','','45',''],
+	['КЛ02001','Екатерина','Селивёрстова','','23',''],
+	['КЛ01005','Александр','Селивёрстов','','','']];
+	function Model() {
+		var self = this;
+		self.relVal = ko.observable('');
+		self.tableData = ko.observableArray(maindata1);
+		self.tableHead = headers;
+		self.xxx2 =  ko.observableArray(['aaa','bbb','ccc']);
+		self.xxx3 =  ko.computed(function() { return self.xxx2(); } ,self, {deferEvaluation: true});
+		self.validVar = ko.observable('').extend({
+						required: true,
+						minLength: 3,
+						pattern: {
+							message: 'Hey this doesnt match my pattern',
+							params: '^[A-Z0-9].$'
+						 }
+					 }).extend({trim:'normal'}).extend({trim:'all'});
+	}
+	var myModel = new Model();
+	ko.applyBindings(myModel);
+	function x() {
+		for(var i in myModel) {
+			console.log(i+' used '+(myModel[i].getSubscriptionsCount && myModel[i].getSubscriptionsCount()));
+		}
+	}
+</script>
+<button onclick="x();">xxx</button>
+</body>
+</html>

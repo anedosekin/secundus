@@ -1,0 +1,22 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<style>
+</style>
+<script>
+var focused_elem = null;
+var freg = function() {
+	
+}
+var obj = document;
+if (obj.addEventListener) obj.addEventListener('focus', freg, true);
+else if( obj.attachEvent ) obj.attachEvent('onfocusin', freg);
+
+</script>
+</head>
+<body>
+<input tabindex="1" type="text" onblur="console.log('blur');window.setTimeout(function(){console.log('blurtimer')},0)" value="">
+<input tabindex="2" type="text" onmousedown="console.log('down');return false" onclick="console.log('click')" value="">
+<div onfocus="console.log('focus in div')" tabindex="3">text</div>
+</body>
+</html>

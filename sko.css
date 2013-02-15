@@ -1,0 +1,40 @@
+.relation {
+	position:relative;
+	font-family:sans-serif;
+	font-size:small;
+}
+.relation input {
+	height:1.5em;
+	width:20em;
+	border:1px solid #ccc;
+	box-shadow:0px 0px 2px 1px rgba(0,0,0,0.1);
+}
+.relation table {
+	position:absolute;
+	top:1.8em;
+	border:1px solid #ccc;
+	box-shadow:0px 2px 5px 1px rgba(0,0,0,0.1);
+}
+.relation th {
+	padding:0.3em;
+	background-color:white;
+	color:black;
+	font-weight:normal;
+	font-size:75%;
+}
+.relation thead th:first-child {
+	border-left:none;
+}
+.relation thead th {
+	border-bottom:1px solid #ddd;
+}
+.relation table TD {
+	padding:0.3em;
+	background-color:#fff;
+}
+.relation .current TD,
+.relation .tablerow:hover TD
+{ 
+	background-color:#bbb;
+	background-color:#ffda92;
+}
