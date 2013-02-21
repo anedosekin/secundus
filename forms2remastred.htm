@@ -1,0 +1,367 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='knockout/sko.js'></script>
+<link rel=stylesheet type="text/css" href="knockout/sko.css">
+<style>
+</style>
+</head>
+<body onload="Init();">
+
+<div data-bind="foreach:T1">
+	<p data-bind="text:f1"></p>
+	<p data-bind="text:rel1.value"></p>
+	<p data-bind="text:rel1('Россия:2012').f2"></p>
+	<p data-bind="text:rel1('Россия:2013').f2"></p>
+		<div data-bind="foreach:rel12()">
+			<p data-bind="text:f2"></p>
+		</div>
+	<p data-bind="text:rel1().rel2.value"></p>
+	<p data-bind="text:rel1().rel2().f3"></p>
+</div>
+
+<script>
+
+	function patchModel(model) {
+		for(var i in model) {
+			var table = model[i];
+			for(var j in table) {
+				var field = table[j];
+				if(field.target) {
+					field.target = model[field.target];
+				}
+			}
+		}
+		return model;
+	}
+	var metaModel = patchModel({
+		T1:{
+			name:'T1',
+			id:{name:'id'},
+			f1:{name:'Ф 1'},
+			rel1:{name:'Рел 1',target:'T2',condition:'f2:?;year:?'},
+			rel12:{name:'Рел 12',target:'T2',where:{'year=2012'}}
+		},
+		T2:{
+			name:'T2',
+			year:{ name: 'Год'},
+			id:{name:'id'},
+			f2:{name:'Ф 2'},
+			rel2:{name:'Рел 2',target:'T3'}
+		},
+		T3:{
+			name:'T3',
+			id:{name:'id'},
+			f3:{name:'Ф 3'},
+			rel3:{name:'Рел циклический',target:'T1'}
+		}
+	});
+X.DBdefaultEnv = {
+		//elm - observable
+		//read from observable
+		read: function(elm) { return elm.value; },
+		//write to observable
+		write: function(elm, value) { (elm.joins ? elm.value : elm)(value); },
+		//mark observable as it has error when data came from server
+		//(usuccessfull try to write data)
+		writeSaveError: function(elm, err) { alert(err); /*or set attribute!*/ },
+		//check if this observable bound to something (need to be read)
+		used: function(elm) { 
+			return elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
+		},
+		//check if this observable bound to input or can be changed somehow else
+		boundAsUpdatable: function(elm) { return elm.boundAsUpdatable; },
+		//make observable with name in container using fielddef as description
+		makeElement: function(container, name, fielddef) {
+			var c = container[name] = ko.observable();
+			c.$ = fielddef;
+			c.parent = container;
+		},
+		//convert element (made with makeElement) to writable one (which is able to send itself to server)
+		convertToUpdatable: function(elm) {},
+		//make relation, eq rel() = X.modelBuilder.traverseRel
+		// but with additionals members
+		// like joins{}, val, and so on
+		makeRelation: function(container, name, fielddef) {
+				var c = container[name] = function() {  return X.modelBuilder.traverseRel.apply(this, arguments); }
+				c.joins = {}
+				c.$ = fielddef;
+				c.parent = container;
+				makeElement(c, 'value', fielddef); //observable = rel value (as field value)
+				//TODO:
+				//1) array to choose rel (if editable!) (it's like subitems = our array, but without where)
+				//2) text - observable to show rel in UI (may be same as val)
+				//3) tip - observable to show rel's light details
+				// and maybe something to our relation bind
+		},
+		//TODO make observable array....
+
+		onSendError: X.log,
+		url: "/save",
+		send: function(data, onresponce, onerror) {
+			var p = X.XHR("POST", this.url, data)
+					.then(onresponce, onerror)
+					.done();
+		},
+		interval: 300,
+		timeout: 10*1000
+}
+X.runModel = (function(env) {
+	return {
+		single: function(tableObject) {
+			var row = new X.modelBuilder.tableNode(tableObject);
+			row.sendQuery = function() {
+				var self = this;
+				self.dataReceived = false;
+				var sql = X.modelBuilder.makeSQL(self);
+				var json = X.modelBuilder.sqlToJSON(sql);
+				env.send(json, function(data) { processArray(data, self) });
+			}
+			ko.applyBindings(row);
+			return row;
+		},
+		multi: function(tableObject) {
+			var table = ko.observableArray();
+			table.appendElement = function(obj) {
+				var table_node = (obj || new X.modelBuilder.tableNode(tableObject));
+				this().push(table_node);
+				return table_node;
+			}
+			table.destroyElement = function(obj) {
+				this().remove(obj);
+			}
+			table.sendQuery = function() {
+				var self = this;
+				self.dataReceived = false;
+				var init_node = self.appendElement();
+				var sql = X.modelBuilder.makeSQL(init_node);
+				var json = X.modelBuilder.sqlToJSON(sql);
+				self.destroyElement(init_node);
+				env.send(json, function(data) { processArray(data, self) });
+			}
+			ko.applyBindings(table);
+			return table;
+		},
+		processArray: function(answer, target) {//koArray = [ko,ko,ko,koArray,ko,koArray]
+			//target - Это объект или массив
+			if(answer.length > 1 && !target.addElement) alert('Expected only one record');
+			//used.push({node: table_node, elem: rel[j]});
+			for(var i = 0;i < answer.length;++i) {
+				var usage = collectUsage(target.addElement ? target.addElement() || target);
+				var k = 0;
+				for(var j in answer[i]) {
+					var cell = answer[i][j];
+					if(cell.length) {
+						processArray(cell,usage[k]);
+					} else {
+						env.write(usage[k].elem, answer[i][j]);
+					}
+					k++;
+				}
+			}
+			target.dataReceived = true;
+		}
+	}
+})();
+X.modelBuilder = (function(env) {
+	var makeAlias = function(n) {
+			return "abcderfghijklmnopqrstuvwxyz".charAt(n) ||
+				makeAlias(n/10)+(n%10);
+		}
+	var res =
+	{
+		tableNode: function(tableObject, rel) {
+			this.$ = tableObject;
+			this.alias = "";
+			this.condition = null;
+			this.key = null;
+			for(var i in tableObject) {
+				var fieldObject = tableObject[i];
+				if(fieldObject.name) env.(fieldObject.target ? makeRelation : makeElement)(this, i, fieldObject);
+			}
+			//TODO: 
+			//elm.destroyElement = function(to_destroy) { 
+//				this.destroy(to_destroy);
+	//			to_destroy.key._destroy = true;
+		//		to_destroy.sendToServer();
+			//}
+			return this;
+		},
+		traverseRel: function(rel, rel_arguments) {
+			var key = Array.prototype.join.call(rel_arguments,":") || "";
+			//table linked with rel //rel itself
+			return rel.joins[key] ||
+				(rel.joins[key] = new X.modelBuilder.tableNode(rel.$.target, rel));
+		},
+		//x.rel() == X.modelBuilder.traverseRel(this.rel, arguments)
+
+
+		makeConditionJoins: function(root, cond, context, rel_params) {
+			if(cond.cache && cond.cache[rel_params]) return cond.cache[rel_params]; //cached
+			//parse cond
+			var real_expr = [];
+			var re = /\s*([^:]+):\s*([^ ;]*)\s*;?/g;
+			var m;
+			while(m=re.exec(cond)) {
+				var fld = m[1];
+				var val = m[2];
+				var fld = eval("root."+fld); //eval path in root context (as KO)
+				var fld = { table: fld.parent, field:fld.$}
+				real_expr.push({ fld: fld, val: val}); 
+					//TODO: find appropriate table in context stack
+					// it's changed from call to call so can't be cached - what we should do?
+					//BUT!
+					// we always has condition in from field1 = const or field1 = field2
+					// where field1 is from right table and field2 from context table (which is ole level up)
+					// at least for now it's always so
+					// so! we can just bound field2 to alias later, in sql
+			}
+			params = rel_params && rel_params.split(':');
+			if(params) {
+				var p = 0;
+				for(var i = 0; i < real_expr.length; ++i)
+					if(real_expr[i].val === '?')
+						real_expr[i].val = params[p++];
+			}
+			cond.cache = cond.cache || {};
+			return cond.cache[rel_params] = real_expr;
+		},
+		makeRelsAndAliases: function(table_node, alias) {
+			alias = alias || { current: 0};
+
+			table_node.alias = makeAlias(alias.current++);
+
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						var target_node = cur.joins[j];
+						target_node.condition = 
+							X.modelBuilder.makeConditionJoins(target_node, rel.$.condition, table_node, j);
+						this.makeRelsAndAliases(target_node, alias);
+					}
+				}
+			}
+		},
+		//collectJoins return table_node, if it doesnt have joins or array of joined tables
+		// or joins with tablenode as first element
+		//table_node or first element of array contains join condition for outer node
+		collectJoins: function(table_node) {
+			// T1->T2->T3
+			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
+			// it's returned as [T1, [T2, T3]]
+			
+			var ret = [];
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						ret.push(this.collectJoins(rel.joins[j]));
+					}
+				}
+			}
+			
+			if(ret == []) {
+				//no subjoins -> return table as it is
+				return table_node;
+			}
+			ret.unshift(table_node); // if we have joins, add table to first element in join sequence
+			return ret; 
+		},
+		generateKeyObject: function(table_node) {
+			if(table_node.key) return table_node.key;
+			var kv = {}
+			for(var i in table_node) {
+				var elem = table_node[i];
+				if(elem && elem.$.pk)
+					kv[elem.$.DBName] = elem;
+				if(elem && elem.value && elem.value.$.pk)
+					kv[elem.val.$.DBName] = elem.value;
+			}
+			return table_node.key = X.DB.new_key(table_node.table, kv);
+			//TODO: subscibe to changes
+		},
+		makeUpdatables: function(table_node) {
+			for(var i in table_node) {
+				var elem = table_node[i];
+				elem = elem && elem.value || elem;
+				if(elem && env.boundAsUpdatable(elem)) {
+					elem.key = this.generateKeyObject(table_node);
+					elem.sendToServer = function() { this.key.sendToServer(this); }
+					env.convertToUpdatable(elem);
+					//TODO: subscibe to changes
+				}
+				
+				var rel = elem;
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins)
+						this.makeUpdatables(rel.joins[j]);
+				}
+			}
+		},
+		collectUsage: function(table_node, used) {
+			//here we have condition for this node
+			//we should right(!) associate joins under relations
+			// T1->T2->T3
+			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
+			// it's returned as [T1:null [T2(T2.rid=T1.rel) T3(T3.rid = T2.rel)]]
+			
+			for(var i in table_node) {
+				var elem = table_node[i];
+				if(elem && env.used(elem)) used.push({node: table_node, elem: elem});
+				var rel = elem;
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel)
+						if(rel[j] && env.used(rel[j]))
+							used.push({node: table_node, elem: rel[j]});
+					for(var j in rel.joins)
+						this.collectUsage(rel.joins[j], usage);
+				}
+			}
+			
+		},
+		makeSQL: function(table_node) {
+			this.makeUpdatables(table_node);
+			this.makeRelsAndAliases(table_node);
+
+			var used = [];
+			this.collectUsage(table_node, used);
+			var joins = this.collectJoins(table_node);
+
+			return {
+				joins: joins, //FROM
+				used: used //SELECT
+			}
+		},
+		sqlToJSON: function(sql_object) {
+			var select = [];
+			for(var i = 0; i < sql_object.used; ++i)
+				select.push(sql_object[i].node.alias+"."+sql_object[i].elem.$.name)
+			
+			var recf = function(joins) {
+				if(!joins.length) // simple table
+					return { table: joins.$.name, 
+							alias: joins.alias, 
+							on: joins.condition //it's array, ready to send
+						}
+				//multijoin
+				var res = []
+				for(var i = 0; i < joins.length; ++i)
+					res.push(recf(joins[i]));
+				return res;
+			}
+			var from = recf(sql_object.joins);
+			return { select: select, from: from };
+		}
+	}
+	return res;
+})();
+function Init() {
+	var M = X.runModel.multi(metaModel['T1']);
+	M.sendQuery();
+}
+</script>
+</body>
+</html>
