@@ -1,0 +1,576 @@
+https://github.com/MikeMcl/big.js
+
+Content-Type
+Content-Length
+Authorization
+
+X-Forwarded-For
+
+Last-Modified
+Age/Expires
+Last-Modified
+WWW-Authenticate
+Cache-Control
+Cache-Control: no-cache, no-store [public]
+
+Jammit - компрессия всего и вся
+http://robertnyman.com/2010/01/19/tools-for-concatenating-and-minifying-css-and-javascript-files-in-different-development-environments/
+
+аутентификация PHP
+http://hybridauth.sourceforge.net/index.html
+
+маппинг в базу
+http://j4mie.github.com/idiormandparis/
+
+php framework
+http://symfony.com/
+http://silex.sensiolabs.org/doc/cookbook/index.html
+
+jsdom - либа эмуляции dom
+Apache Shindig and easyXDM - crossdomain communication
+(+postmessage)
+ localStorage - есть в IE8
+Hashchange event - есть
+sessionStorage and localStorage - есть
+calc() css - есть!
+
+forceRerendering (naturally) that looks like this:
+	someElement.appendChild(document.createTextNode(' '));
+	someElement.removeChild(someElement.lastChild);
+
+последний(он же - текущий) скрип
+	var scripts = document.getElementsByTagName( 'script' );
+	var thisScriptTag = scripts[ scripts.length - 1 ];
+
+Underscore.js - полезные фишки
+но многое уже есть, а отальное можно повторить
+http://osteele.com/sources/javascript/functional/
+это тоже интересно
+
+RSVP.js - клево, вроде, promices+events
+		или свой код?
+
+Zepto = min of jQUery
+
+надо выбрать
+	роутер
+	обработку глобальных событий
+отложенные запросы
+
+mustache templates - универсальные (годятся для серверсайд в т.ч. с++)
+
+ History.js - работа с историей
+ Routerjs - отдельный роутер
+ 
+json должен читать данные прямо в объект!
+	(просто объект или в ko)
+причем делать это "отложено"
+
+error обрабатывается глобально или локально
+	глобально или локально ставится таймаут (можно пока только глобально!)
+
+es5shim or augmentjs
+
+prepend | append в фильтрах значений
+
+github.com/ericmbarnard/Knockout-Validation
++надо url и обратное преобразование для 1) пробелов 2) пробелов в числах и датах
+
+нужные запросы
+	вверх: атрибут или тэг P, Pt
+		множество атрибутов Pa с объектом
+		можно компилировать и кэшировать
+		надо не выходить из спец. области
+	назад/вперед: атрибут (тэг НЕ нужен, видимо)
+		при этом надо подниматься вверх (но не выше определенного уровня!)
+		и заходить вниз
+		B(attr, up_attr) (для наших целей up_attr = attr вроде бы)
+
+/*
+события
+	надо ловить глобально
+	1) уход фокуса с окна (закрывать окна)
+	2) готовность документа (обрабатывать шаблоны)
+		но шаблоны можно обрабатывать по "приходу" данных
+		т.е. это отдельный запрос, его можно так и вызывать
+		т.к. саму страницу мы кэшируем,
+		только данные загружаются
+		и, может быть, с визуальными эффектами
+		т.к. первая страница маленькая,
+		мы можем вешаться и на onload!
+		(для запуска первого рендера)
+	т.о. onload на НЕ нужен
+	3) изменение данных (переносить и проверять значения и т.п.)
+		можно локально
+	4) отпускание кнопки (изменять размер полей)
+		можно локально
+*/
+
+/*
+mjt - хорошо! почти то, что нужно
+	только надо научиться вытаскивать нужный json
+	в том числе по вложенным тэгам
+	но сам шаблонизатор при этом простой!!!!
+	и тот, что есть, не делает того, что нужно
+	(повторители, например, удаляют тэги)
+
+еще надо разбор строки аргументов
+
+и разбор строки с квотированием кавычками (в духе csv) 
+Match C/C++ quotes : "[^"\\]*(\\.[^"\\]*)*"
+	"[^"\\]*(?:\\.[^"\\]*)*"
+Match VB quotes : "[^"]*(""[^"]*)*"
+Match a SGML/XML tag taking care of > inside quotes: <[^>"]*("[^"]*"[^>"]*)*>
+
+by 3 digits
+'1234567890'.replace(/(\d)(?=(\d\d\d)+(?!\d))/g, '$1,')
+
+*/
+
+/*
+google-jstemplate - может работать "по различиям!"
+
+jsselect="expr" — iteration, change of local evaluation context
+jsdisplay="expr" — conditional display
+jscontent="expr" — content of current DOM node
+jsvalues="target:expr;..." — set values in current context
+jsvars="var:expr;..." — set variables with names that don't start with $
+jseval="expr" — evaluates expression on current DOM node
+transclude="id" — transcludes an HTML fragment by id (no expression here)
+jsvalues="attr:expr;..." — set attribute values
+jsvalues=".prop:expr;..." — set js properties
+jsvalues=".prop.subprop:expr;..." — set nested js properties (e.g., on .style)
+jsvalues="$var:expr;..." — set variables in local context
+*/
+
+/*
+	общий процесс
+	1) устанавливаем хлперы в элементы (прототип?)
+	2) разбираем тэги шаблонизатора
+		(который используем - mjt)
+		(код можно взять у самого шаблонизатора)
+*/
+
+/*
+	TODO:
+	парсинг описаний
+*/
+
+
+/*
+	синхронизация с базой
+	1) в модели храним
+		текущее значение (оно синхронно с отображением)
+		последнее посланное значение
+		последние значение из базы
+	2) при изменении в модели пишем в отчередь отправки
+		(заодно можно паковать значения по ключам)
+	3) очередь время от времени вычищаем, отправляя на сервер
+		и переносим в очередь ожидания
+	4) хорошие ответы переводят
+		значения из посланного в текущее и в базу
+	5) плохие ответ вычищают посланное и высталяют статус
+	6) в очередях храним ссылки на исходные объекты, 
+		но для значений храним копии, иначе не будет ясно
+	7) для сохранения нам нужен общий урл
+	8) для чтения мы можем знать root
+	9) при этом надо знать еще значения по умолчанию (и фильтры)
+
+*/
+
+/*
+	авторизация
+	мы можем понимать 
+	- анонимные страницы - в конфигурации явно
+	- порядок просмотра заголовков
+		1) X-Authorization header
+		2) X-Authorization cookie
+		3) Authorization header
+	- если соединение защищенное и есть trusted-заголовок
+		доверяем и берем пользователя
+	- если не защищенное, перепроверяем по запросу
+		(backend, nginx)
+	- т.к. мы ориентируемся на XHR, в нем мы можем проверить ошибку (401)
+		и перезапросить
+	- если не брать данные другим способом, этого достаточно
+	- logout - это просто стереть cookie
+	на форонтальном nginx все это просто делается
+	на php тоже можно в роутинге во фреймворке
+*/
+
+/*
+	конкретная авторизация
+		тут мы проверяем все поля на доступность для чтения и записи
+		при этом проверяем, чтобы все нужные фильтры были - и ок
+*/
+
+KO mapping
+1) он работает с объектом целиком (вся модель)
+	хотя, конечно, может и по частям
+	но данные приходят целиком
+	тут не ясно с пустыми массивами - они просто не будут созданы
+	да и состав мы вычисляем заранее
+т.о. КО маппинг на не нужен
+
+надо бы поверх NoSQL сделать SQL с работой по индексам
+тут у нас есть проблема только с join
+T1 + filter1 => keys1 =>rel_vals1
+T2 + filter2 => keys2
+после выборки мы имеем оценку размера каждой выборки
+если она больше предела, выкидываем и идем в фильтрацию по ключам другой выборки
+если меньше - используем эту выборку
+
+/*
+функции баз
+дата
+	sqllite 
+	
+номер
+f - data, x - counter
+replace into aaa(f,x) select 2,ifnull(max(x),-1)+1 from aaa where f=2
+
+*/
+
+ключи
+1) YY (year 64*64)
+2) DDD (day in year)
+--
+ССС = 64*64*64/366 = 700 лет
+3) TTT (time 24*60*60)
+4) PP (paltform 64*64)
+--8
+5) SEQ in time on server 2-3-4 4000 - 200 000 - 16 млн /сек
+6) SEQ in client
+можно исп-ть переменную длину
+SSS...SSSCCCC
+при этом сервер использует переменную длину и последний символ 0-31
+а клиент использует переменную длину с первым символом 32-63
+т.о. тут не будет повторов
+
+алгоритм
+1) синхронно спрашиваем сервер
+2) запоминаем время
+3) если прошло много, обновляем
+
+на срвере таблица датавремя - номер
+старые надо удалять (если вернули 0)
+это примерно равно мержу
+
+autoincrement
+(for platform - simple!)
+автоинкремент плохо подходит для пакетной обработки
+
+/*
+ko.bindingHandlers.stopBindings = {
+    init: function() {
+        return { controlsDescendantBindings: true };
+    }  
+};
+*/
+/*
+<!--[if lt IE 7 ]> <html class="ie6 ielt9"> <![endif]-->
+<!--[if IE 7 ]>    <html class="ie7 ielt9"> <![endif]-->
+<!--[if IE 8 ]>    <html class="ie8 ielt9"> <![endif]-->
+<!--[if IE 9 ]>    <html class="ie9"> <![endif]-->
+<!--[if (gt IE 9)|!(IE)]><!--> <html class=""> <!--<![endif]-->
+
+for vertical center in container
+display: table-cell; vertical-align: middle
+*/
+//<!--[if IE]><script defer src="ie_onload.js"></script><![endif]-->
+//		/*@cc_on
+			//@if (@_win32 || @_win64)
+			//document.write("<script id=__ie_onload defer src=\":\"><\/script>");
+			//var script = document.getElementById("__ie_onload");
+			//script.onreadystatechange = function() {
+			//	if (this.readyState == "complete") {
+			//		domReadyEvent.run(); call the onload handler
+			//	}
+			//};
+			//@end
+//		@*/
+
+построение использований
+скорее всего раз и навсегда построить нельзя, надо по запросу каждый раз перед использованием
+при этом не важны циклы
+
+тогда для каждого объекта модели мы имеем
+1) ее название в базе (или выражение!)
+2) таблицу, в которой он есть
+3) можно иметь и родителя по дереву
+4) для родителя надо знать еще способ вычисления ключа, т.е. описатель таблицы
++ флаги использования
+объект может быть просто объектом (isObject)
+или массивом (isArray)
+5) для массива есть ф-я создания элемента
+6) массив имеет таблицу!
+
+код при этом простой
+1) если объект
+
+связи
+в объекте таблицы есть ф-и 
+а) связей
+б) полей
+(в этих ф-х есть еще описатели связей и полей)
+
+т.е. есть описатель таблицы, содержащий ф-и полей/связей и карту полей
++ описатель поля, содержащий при случае ссылку на таблицу
+пока таблицу мы знаем и без ссылки из поля на таблицу (но для контролов это надо!)
+
+ф-и полей
+
+OBJ.P().rel1().rel2()
+
+rel1 вызывается для Path, где prototype имеет rels на таблицы
+
+при прямом пути надо брать текущий path (this)
+брать объект с прототипом целевой таблицы (он заодно знает и описатель)
+и дополнять его путем (он и есть путь), т.е. описателем текущего relation
+т.е. все классично
+P() генерирует начала пути - пустой массив
+и далее rel его двигают
+еще есть path.join(table, rel, cond)
+тут мы генеруем для table связь от нее по rel c доп. cond
+можно и так path.join(T().relX(), cond)
+тут компонентом пути становится весь путь в join
+t1.rel1.rel2.join(tx1.relx1.relx2, cond)
+t1 join t2 on rel1=t2.rid
+join t3 on rel2=t2.rid
+join (
+	tx1 join tx2 on relx1=tx2.rid
+	join tx3 on relx3=tx3.rid
+) on cond
+
+просто путь
+T cond T cond T === T rel rel
+т.к rel == T+cond
+
+путь со скобками
+T cond T cond (T cond T)
+
+т.е просто path это root + [rels]
+rel м.б.
+а) описателем связи (T+cond)
+б) путем + cond
+
+т.о. пути есть как есть
+ссылки "вверх" в пути могут идти по имени таблицы (до ближайшей) - это в conditional
+
+генерированная ф-я работает быстро!
+(gen/regex chrome:0.6/1.3 ff: 1.6/5.2 ie8:24/37)
+
+для regEx мы можем брать строку и разбирать - одна ф-я, простая в отладке
+хотя оно больше делает и будет еще медленнее, т.к. ей надо не строки добавлять, а объекты
+но все решает кэширование - а его проще на строках делать с разбором
+т.к. тут еще можно условия проверять!!!
+
+синтаксис пути
+T.rel.rel.f(T.rel.rel.f,cond).f
+T(T.rel.rel.f, cond).f // PK on the left!
+
+writable cte
+http://stackoverflow.com/questions/1109061/insert-on-duplicate-update-postgresql/8702291#8702291
+маленький lock
+SELECT pg_advisory_lock( ? )' /unlock 
+LOCK TABLE test IN ACCESS EXCLUSIVE MODE
+CREATE FUNCTION merge_db(key INT, data TEXT) RETURNS VOID AS
+$$
+BEGIN
+    LOOP
+        -- first try to update the key
+        UPDATE db SET b = data WHERE a = key;
+        IF found THEN
+            RETURN;
+        END IF;
+        -- not there, so try to insert the key
+        -- if someone else inserts the same key concurrently,
+        -- we could get a unique-key failure
+        BEGIN
+            INSERT INTO db(a,b) VALUES (key, data);
+            RETURN;
+        EXCEPTION WHEN unique_violation THEN
+            -- Do nothing, and loop to try the UPDATE again.
+        END;
+    END LOOP;
+END;
+$$
+LANGUAGE plpgsql;
+
+WITH foos AS (SELECT (UNNEST(%foo[])).*)
+updated as (UPDATE foo SET foo.a = foos.a ... RETURNING foo.id)
+INSERT INTO foo SELECT foos.* FROM foos LEFT JOIN updated USING(id)
+WHERE updated.id IS NULL;
+
+для добавления значений в связанную таблицу, которая не массив,
+нужен update связанных записей (т.е поле по связи - обновляемое - это разумно для связей "вверх")
+еще полезно "фильтровать" на клиенте уже вынесенные вверх поля
+т.е. когда поле есть явно и есть в массиве (по ключам, наверное)
+
+для поля мы по пути знаем из какой оно таблицы и знаем связь
+если это существующая связь (как узнать?) делаем update
+иначе insert
+
+в поле мы должны для всех таблицы выбрать еще и их ключ
+(если поле обновляемое)
+т.е. в обновлении мы или имеем контейнер-объект
+или мы сами такой контейнер
+или он у нас общий со многими полями
+это табличный объекта, содержаший ключ
+он есть
+	для корня
+	для массива
+	для вложенных обновляемых полей по связям
+	(bind на value)
+в корне мы считаем, что всегда есть ключ
+(это выясняется циклом по объекту и проверкой isKey)!!!
+это нам нужно только в отправке на сервер и получении обратно
+т.е. updatable добавляет поля ключа в used (чтобы не писать явно в контролы)
+для !updatable ключ можно даже не выбирать
+для полей под связью, которые updatable, мы уже где-то имеем созданный и проставленный container
+(как и для обычных) и в него тоже добавляем поля ключа
+в простом случае это root - leaf
+при этом
+	создание root изменяет ключ leaf
+	создание leaf может изменить его собственный ключ
+во 2-м случае все как обычно, т.к. мы имеем обычный ответ
+в 1-м случае мы имеем 2 поля
+	root.rid = leaf.up
+логично, что ключ leaf = leaf.up + ...
+сохранение root пишет в root.rid
+т.о. надо где-то иметь '='
+теоретически, leaf.up = computed(root.rid)
+при этом, конечно, в leaf.up писать нельзя и его нельзя сохранить до того, как вычислится ключ
+т.е. если ключ содержит null send ничего не посылает (это вообще в целом так!)
+это простая проверка, полезная и при конструировании объектов, чтобы рано не посылались
+или не посылались пустые/временные
+мы посылаем только если новое значение ключа не равно пустому
+таким образом, отсылка leaf будет ждать
+где и сколько?
+1) мы в любом случае должны записать parent сначала
+если он готовый, нет проблем
+есле нет?
+если у parent готовый ключ
+мы его знаем и он есть в создании (тут уже можно сразу писать parent)
+если cid, снова можно сразу писать
+мы можем только ждать userkey прежде, чем писать
+если ключ еще не готов, надо закрыть редактирование таких полей, которым нужен ключ для записи!
+собственно, с собственными полями аналогично
+мы их имеем, но закрываем до момента формирования ключа (hidden!!!!!)
+и это нормальное решение, т.к. мы имеем все, что надо и хороший ui
+м.б. еще нужны и просто required поля
+
+
+выборка необязатяельных значение под связью с автоматическим добавлением
+
+select T2.val from T1 left join T2 on T2.cnt  = T1.rid and T2.code = 'tel'
+
+T2.tel = null if
+	val  = null or no record
+
+нам надо знать(!!!!!) есть ли запись (update/insert choosing)
+
+в реальность мы еще выбираем реальный ключ
+select T2.val, T2.cnt, T2.code from T1 left join T2 on T2.cnt  = T1.rid and T2.code = 'tel'
+тут случае
+T2.cnt = NULL T2.code = NULL
+T2.cnt = NULL T2.code = 'tel'
+T2.cnt = XXX T2.code = NULL
+T2.cnt = XXX T2.code = 'tel'
+
+1-3 - тут есть NULL в ключе, т.е. ключ не полный (!)
+значит, надо генерировать insert!
+
+Удаление можно сделать как delete if null (даже без триггера!!!)
+
+после update/insert надо иметь список полей для перечитывания
+(но это - полный select)
+
+
+
+drupal file storage + WEBDAV
+drupal -> filedepot
+or just content type
+maestro for workflow
+
+http://devsnippets.com/article/7-free-powerful-file-managers.html
+AJAXPLORER - no tags, many funcs, russian
+MOOTOOLS BASED FILEMANAGER Use as a FileManager in TinyMCE
+KAE’S FILE MANAGER - гуд, tags!!! not works
+
+XODA - документ менеджмет
+
+http://www.gerd-tentler.de/tools/filemanager/ работает нормально, no tags
+
+
+как разбирать выражения?
+1) полный - тут только скобки, т.е. можно regExp+ цикл
+2) обратный польский - тут вообще все просто, можно regexp явно
+и мало проверок
+т.е. идем по элементам
+определяем тип и далее выполняем операцию 
+  для поля - регистрируемся и в стек
+  для константы - в стек
+  для ф-и - из стека join и в стек
+
+при этом мы можем передавать where общего вида
+т.к. его кодирование ничего не дает
+(а общего вида проще для сервера - просто разные формы сбора для просто выражения и and/or)
+но можно верхний уровень держать за and - это удобно
+а or считать ф-ей
+
+
+PHP database abstraction
+PDO
+MDB2 (+schema)
+
+drupal
+http://megadrupal.com/blog/7-mega-menu-modules-for-drupal
+
+dll->com
+http://web.archive.org/web/20090318102821/http://ourworld.compuserve.com/homepages/Guenter_Born/WSHBazaar/WSHDynaCall.htm
+
+dpp->com->php
+<?php
+shell_exec('regsvr32 /s "'.realpath("DynaWrap.dll").'"');
+ 
+try
+{
+    $com = new COM("DynamicWrapper");
+    $com->Register("KERNEL32.DLL", "Beep", "i=ll", "f=s", "r=l");
+    $com->Beep(5000, 100);
+}
+catch(com_exception $e)
+{
+    die($e);
+}
+?>
+
+ PHPExcel,
+ http://www.drupal.ru/node/48391
+ 
+ http://drupal.org/project/feeds
+ http://drupal.org/project/feeds_excel
+ http://drupal.org/project/feeds_xls
+ 
+ http://drupal.org/project/data
+ //make sure we have the data module
+  include_once(drupal_get_path('module', 'data') .'/data.module');
+ 
+  //instanciate the table we just created with the DataTable class
+  $my_table_object = DataTable::instance('my_table');
+  //tell Data module to adopt the table
+  $my_table_object->adopt();
+  DataTable::clearCaches();
+ 
+ http://drupal.org/project/Sheetnode - ексель
+ 
+ http://views-help.doc.logrus.com/help/views/api-tables
+ http://drupal.org/project/views_data_export
+ http://drupal.org/project/services_views
+ http://drupal.org/project/viewfield
+ http://mydons.com/how-to-expose-custom-module-table-to-views-in-drupal/
+ 
+ добавить строку меню в бартик!!!
+ 
+ drush !!!!

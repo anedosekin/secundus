@@ -80,15 +80,65 @@
 	T1 = ko.observableArray({id, f1, rel1().id, rel1().f2, rel1().rel2(), rel1().rel2().id, rel1.rel2().f3 })
 	T1 = ko.observableArray({ id, f1, rel1() })
 	*/
-	function tableNode(tableObject) {
+	function sendSqlRequest(sql, callback) {
+		//TODO: sql запрос и получение данных в формате JS в функцию pushData
+	}
+	function processArray(answer, target) {//koArray = [ko,ko,ko,koArray,ko,koArray]
+		//target - Это объект или массив
+		for(var i = 0;i < answer.length;++i) {
+			var usage = (target.addElement()).usage;
+			var k = 0;
+			for(var j in answer[i]) {
+				var cell = answer[i][j];
+				if(cell.length) {
+					processArray(cell,usage[k]);
+				} else {
+					usage[k](answer[i][j]);
+				}
+				k++;
+			}
+		}
+		target.dataReceived = true;
+	}
+	function tableNode(tableObject, where) {
 		var self = this;
-		self[tableObject.name] = addition(ko.observableArray());
+		var table = self[tableObject.name] = ko.observableArray();
+		table.$ = tableObject;
+		table.where = where;
+		table.dataReceived = false;
+		table.destroy = function(obj) {
+			this.remove(obj);
+		}
+		table.ready = function() {
+			return dataReceived;
+		}
+		table.addElement = function(fake) {
+			var rowModel = new rowNode(this.$);
+			this().push(rowModel);
+			var usage = traceUsage(this()[this().length-1]);
+			return {usage:usage,element:rowModel};
+		}
+		table.sendQuery = function() {//вызывается первым
+			var elemInfo = this.addElement();//на основании модели построит запрос
+			this.destroy(elemInfo.element);
+			this.dataReceived = false;
+			sendSqlRequest(elemInfo.usage.sql, processArray, this);//посылаем запрос
+		}
+	}
+	function rowNode(tableObject) {
+		var self = this;
 		for(var fieldName in tableObject) {
 			var fieldObj = tableObject[fieldName];
 			if(fieldObj.target) {
-				self[fieldName] = function() { return self[fieldName].cache || (self[fieldName].cache = new rowModel(fieldObj.target)); }
-				self[fieldName].value = ko.observable('');
-				self[fieldName].value.$ = fieldObj;
+					self[fieldName] = function() { 
+						return self[fieldName].cache || 
+							(self[fieldName].cache = (fieldObj.where ? 
+								new tableNode(fieldObj.target,fieldObj.where) :
+								new rowNode(fieldObj.target)));
+					}
+					self[fieldName].value = ko.observable('');
+					self[fieldName].value.$ = fieldObj;
+
 			} else 
 			if(fieldObj.name) {
 				self[fieldName] = ko.observable('');
@@ -96,7 +146,50 @@
 			}
 		}
 	}
-	
+	function traceUsage(tableModel, trace, select) {//[ko,ko,ko,ko,koArray,ko,ko,koArray]
+		var usageTrace = (trace || []);
+		var rowModel = tableModel()[0];
+		var sqlSelect = (select || {fields:[],joins:''});
+		//SELECT alias1.f1,alias2.f2,alias3.f3,alias4.f4 FROM (alias1 INNER JOIN (alias2 ON alias1.rel=alias2.id INNER JOIN (alias3 ON alias2.rel=alias3.id INNER JOIN alias4 ON alias3.rel=alias4.id)))
+		//rowModel
+		
+		var alias = Alias.get(tableModel.$.name);
+		for(var j in rowModel) {
+			if(rowModel[j].value) {//observable rel
+				if(rowModel[j].cache) {
+					console.log('relation ' + j + ' is used');
+					if(rowModel[j].value.getSubscriptionsCount()) {
+						usageTrace.push(rowModel[j].value);
+						sqlSelect.fields.push(alias+'.'+rowModel[j].value.$.name);//usage
+					}
+					if(rowModel[j].where) {
+						var elemInfo = rowModel[j].cache().addElement();
+						rowModel[j].cache().destroy(elemInfo.element);
+						if(elemInfo.usage.trace.length) {
+							usageTrace.push(rowModel[j].cache);
+							//usage
+						}
+					}
+					else {
+						traceUsage(rowModel[j].cache, usageTrace);
+					}
+				}
+			}
+			else {//field
+				if(rowModel[j].getSubscriptionsCount && rowModel[j].getSubscriptionsCount()) {//observable field
+					console.log(j + ' is used');
+					usageTrace.push(rowModel[j]);
+					sqlSelect.fields.push(alias+'.'+rowModel[j].$.name);//usage
+				}
+			}
+		}
+		return {trace: usageTrace, sql: sqlSelect};
+	}
+	function Init() {
+		var M = tableNode(metaModel['T1']);//rowNode
+		ko.applyBindigs(M);
+		sendQuery(M, where);
+	}
 	function rowModel(tableObject) {
 		var self = this;
 		self.$ = tableObject;
@@ -131,25 +224,6 @@
 		}
 		return sqlTable;
 	}*/
-	function traceUsage(rowModel, trace) {
-		var usageTrace = (trace || []);
-		for(var j in rowModel) {
-			if(rowModel[j].value) {//observable rel
-				if(rowModel[j].cache) {
-					console.log('relation '+j + ' is used');
-					usageTrace.push(rowModel[j].value);
-					traceUsage(rowModel[j].cache, usageTrace);
-				}
-			}
-			else {//field
-				if(rowModel[j].getSubscriptionsCount && rowModel[j].getSubscriptionsCount()) {//observable field
-					console.log(j + ' is used');
-					usageTrace.push(rowModel[j]);
-				}
-			}
-		}
-		return usageTrace;
-	}
 	var Alias = {
 		i:0,
 		aliases:{},
@@ -196,48 +270,8 @@
 			}
 		}*/
 	}
-	function sendSqlRequest(sql, callback) {
-		//TODO: sql запрос и получение данных в формате JS в функцию pushData
-	}
-	function processDataArray(dataArray, usage, offset) {
-		offset = offset || 0;
-		for(var i = 0;i < dataArray.length;++i) {
-			if(!dataArray[i].length) {//object
-				usage[i+offset](dataArray[i]);
-			} else {
-				processDataArray(dataArray[i],usage,i);
-			}
-		}
-	}
-	function takeAnswer(answer, usage, target) {
-		//target - Это объект или массив
-		if(target().length) {//array
-			for(var i = 0;i < target().length;++i) {
-				processDataArray(answer, target.addElement());
-			}
-			target.ready = true;
-		} else {//object
-			processDataArray(answer, usage);
-		}
-	}
-	function addition(koArray) {
-		koArray.ready = false;
-		koArray.destroy = function(obj) {
-			this.remove(obj);
-		}
-		koArray.addElement = function () {
-			this.model = new rowModel(this.$);
-			this.usage = traceUsage(this.model);
-			this().push(this.model);
-			return this.usage;
-		}
-		koArray.sendQuery = function() {//вызывается первым
-			this.sql = this.sql || makeSQL(this.model);//на основании модели построит запрос
-			sendSqlRequest(sql, takeAnswer, this);//посылаем запрос
-		}
-		koArray.addElement();
-		return koArray;
-	}
+
+
 	function sendQuery(model) {
 		for(var i in model) {
 			if(model[i].sendQuery) {

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<HTML>
+<META HTTP-EQUIV="X-UA-Compatible" CONTENT="IE=edge" />
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<LINK REL=StyleSheet HREF="lib/main.css">
+<LINK REL=StyleSheet HREF="theme.css">
+<SCRIPT src="lib/scripts.js"></SCRIPT>
+<HEAD>
+</HEAD>
+<BODY>
+before
+<DIV id=cb class="popupFrame" closeBox>
+	popup
+</DIV>
+after
+<div style="height:5em"></div>
+
+<div class=hoverable>
+	hovered
+	<div class=hoverBox>
+		hover
+	</div>
+</div>
+<button onclick="alert(JSON.stringify('aa p1:11pp p2 p3 pf: aaa p4:= 2 + 3 '.parseXON('z')))">XON</button>
+<button onclick="I('tst').setD(true); I('tst').className = I('tst').className">test</button>
+<button onclick="X.asyncCall(function() {alert(1)})">msg</button>
+<button onclick="X.delay(100).then(function(){alert(2)}).then(function(){alert(3)})">delay</button>
+
+<table>
+<tr>
+<td><div>xxx1</div>
+<tr id=tst display=N>
+<td><div>xxx</div>
+<tr>
+<td><div>xxx2</div>
+</table>
+<button onclick="I('md').showXModal()">modal</button>
+<div>
+	<div id=md display=N class="popupFrame" closeBox modal closeOnEsc quickClose>
+		<a href=#>modal</a>
+		<a href=#>modal</a>
+	</div>
+</div>
+
+<div display_content=N>
+	text
+	<div> inside
+	</div>
+</div>
+
+<script>
+</script>
+
+<button onclick="alert(I('x').innerHTML)">script text</button>
+<script id="x" type="text/plain" src="model.md"></script>
+
+</BODY>
+</HTML>

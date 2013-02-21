@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<HTML>
+<META HTTP-EQUIV="X-UA-Compatible" CONTENT="IE=edge" />
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<LINK REL=StyleSheet HREF="lib/main.css">
+<LINK REL=StyleSheet HREF="theme.css">
+<SCRIPT src="lib/scripts.js"></SCRIPT>
+<HEAD>
+</HEAD>
+<BODY>
+before
+<DIV id=cb class="popupFrame" closeBox>
+	popup
+</DIV>
+after
+<div style="height:5em"></div>
+
+<div class=hoverable>
+	hovered
+	<div class=hoverBox>
+		hover
+	</div>
+</div>
+<button onclick="alert(JSON.stringify('aa p1:11pp p2 p3 pf: aaa p4:= 2 + 3 '.parseXON('z')))">XON</button>
+<button onclick="I('tst').setD(true); I('tst').className = I('tst').className">test</button>
+<button onclick="X.asyncCall(function() {alert(1)})">msg</button>
+<button onclick="X.delay(2000).then(function(){alert(2); return X.delay(2000)}).then(function(){alert(3)})">delay</button>
+<button onclick="X.DBdefaultEnv.openLocalDB()">create db</button>
+<button onclick="testFunc()">TextFunc</button>
+<button onclick="testRe()">TextRe</button>
+
+<script>
+	var cnt = 1000000;
+	var cnt2 = 3;
+	function pc(base, add) { 
+		if(base) {
+			this.p = base.slice(0); this.p.push(add)
+		} else
+			this.p = []
+	}
+	function fx() { return new pc(this.p, "s"); }
+	pc.prototype.fx = fx;
+	function testFunc() {
+		var t = new Date();
+		for(var i = 0; i <cnt; ++i) {
+			var p = new pc;
+			//p = eval("p.fx().fx().fx()");
+			p = p.fx().fx().fx();
+			//p = eval("p.fx.fx.fx".replace(/fx/g,"fx()"));
+		}
+		alert(((new Date()) - t)/1000);
+	}
+	var ttt = { s: "s" }
+	cache_ttt = {}
+	function testRe() {
+		var t = new Date();
+		for(var i = 0; i <cnt; ++i) {
+			var p = { p:[] }
+			var ss = "s.s.s"
+			if(cache_ttt[ss]) p = cache_ttt[ss];
+			else {
+				var re = /[^.]+/g;
+				var m;
+				while(m = re.exec(ss)) {
+					var p1 = new pc(p.p, ttt[m[0]] )
+					p = p1
+				}
+				cache_ttt[ss] = p;
+			}
+		}
+		alert(((new Date()) - t)/1000);
+	}
+</script>
+
+<table>
+<tr>
+<td><div>xxx1</div>
+<tr id=tst display=N>
+<td><div>xxx</div>
+<tr>
+<td><div>xxx2</div>
+</table>
+<button onclick="I('md').showXModal()">modal</button>
+<div>
+	<div id=md display=N class="popupFrame" closeBox modal closeOnEsc quickClose>
+		<a href=#>modal</a>
+		<a href=#>modal</a>
+	</div>
+</div>
+
+<div display_content=N>
+	text
+	<div> inside
+	</div>
+</div>
+
+<script>
+</script>
+
+<button onclick="alert(I('x').innerHTML)">script text</button>
+<script id="x" type="text/plain" src="model.md"></script>
+
+</BODY>
+</HTML>
