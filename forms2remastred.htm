@@ -42,7 +42,6 @@
 			id:{name:'id'},
 			f1:{name:'Ф 1'},
 			rel1:{name:'Рел 1',target:'T2',condition:'f2:?;year:?'},
-			rel12:{name:'Рел 12',target:'T2',where:{'year=2012'}}
 		},
 		T2:{
 			name:'T2',
@@ -50,6 +49,7 @@
 			id:{name:'id'},
 			f2:{name:'Ф 2'},
 			rel2:{name:'Рел 2',target:'T3'}
+			brel2:{name:'Рел 2',back:{table:'T1',field:},}
 		},
 		T3:{
 			name:'T3',
@@ -149,12 +149,13 @@ X.runModel = (function(env) {
 			if(answer.length > 1 && !target.addElement) alert('Expected only one record');
 			//used.push({node: table_node, elem: rel[j]});
 			for(var i = 0;i < answer.length;++i) {
-				var usage = collectUsage(target.addElement ? target.addElement() || target);
+				var usage = [];
+				X.modelBuilder.collectUsage(target.addElement ? target.addElement() || target, usage);
 				var k = 0;
 				for(var j in answer[i]) {
 					var cell = answer[i][j];
 					if(cell.length) {
-						processArray(cell,usage[k]);
+						X.runModel.processArray(cell,usage[k]);
 					} else {
 						env.write(usage[k].elem, answer[i][j]);
 					}
