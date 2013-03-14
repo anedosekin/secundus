@@ -46,10 +46,8 @@
 	}
 	var myModel = new Model();
 	ko.applyBindings(myModel);
-	function x() {
-		for(var i in myModel) {
-			console.log(i+' used '+(myModel[i].getSubscriptionsCount && myModel[i].getSubscriptionsCount()));
-		}
+	for(var i in myModel) {
+		console.log(i+' used '+(myModel[i].getSubscriptionsCount && myModel[i].getSubscriptionsCount()));
 	}
 </script>
 <button onclick="x();">xxx</button>

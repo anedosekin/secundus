@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout/sko.js'></script>
+<link rel=stylesheet type="text/css" href="knockout/sko.css">
+<style>
+</style>
+</head>
+<body>
+
+<span data-bind="foreach:T1"><span data-bind="text:f1"></span></span>
+
+<script>
+	function Model() {
+		var self = this;
+		self.T1 = ko.observableArray([]);
+	}
+	var myModel = new Model();
+	ko.applyBindings(myModel);
+	var node = {f1:ko.observable('')};
+	myModel.T1.push(node);
+	for(var i in node) {
+		console.log(i+' used '+(node[i].getSubscriptionsCount && node[i].getSubscriptionsCount()));
+	}
+</script>
+</body>
+</html>
