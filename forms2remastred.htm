@@ -90,7 +90,7 @@ X.DBdefaultEnv = {
 				for(var i = 0;i < value.length;++i) {
 					var k = 0, usage = [];
 					var node = elm.appendElement();
-					X.modelBuilder.setupLinkedUsage(node);
+					X.modelBuilder.linkUsedConditions(node);
 					X.modelBuilder.collectUsage(node, usage);
 					for(var j in value[i]) {
 						//TODO: server answer value length may be greater than usage. should check it and alert
@@ -150,24 +150,40 @@ X.DBdefaultEnv = {
 			c.auto = def.array && def.array.indexOf('auto')==0;
 			c.defer = def.array && def.array.indexOf('defer')==0;
 			c.ready = ko.observable();
-			c.appendElement = function(obj) {
-				var table_node = (obj || new X.modelBuilder.tableNode(def.target || def));
-				if(c.external) table_node.external = c.external();//условия для backrel
+			c.current_node = ko.observable();
+			c.external = ko.computed(function() {
+				if(!def.condition) return;
+				var table_node = c.current_node();
+				var rez = [];
+				for(var i=0;i<def.condition.length;++i) {
+					var cond = def.condition[i];
+					var expr = {there: (table_node || {})[cond.there], value: cond.value, here: cond.here};
+					if(c.defer && cond.here) { 
+						expr.value = c.parent[cond.here]();
+					}
+					rez.push(expr);
+				}
+				return rez;
+			}, c, {deferEvaluation: true});/*считается только для используемых массивов*/
+			c.appendElement = function() {
+				c.current_node(new X.modelBuilder.tableNode(def.target || def));
+				var table_node = c.current_node();
+				table_node.external = c.external();
 				c.push(table_node);
 				return table_node;
 			}
 			c.destroyElement = function(obj) {
 				c.remove(obj);
 			}
-			c.makeQuery = function(context) {
+			c.makeQuery = function() {
 				var init_node = c.appendElement();
-				var sql = X.modelBuilder.makeSQL(init_node, context);
+				var sql = X.modelBuilder.makeSQL(init_node, c.parent);
 				c.destroyElement(init_node);
 				return sql;
 			}
-			c.sendQuery = function(context) {
+			c.sendQuery = function() {
 				c.ready(false);
-				var json = X.modelBuilder.sqlToJSON(c.makeQuery(context));
+				var json = X.modelBuilder.sqlToJSON(c.makeQuery());
 				env.send(json, function(data) { env.write(c, data) });
 			}
 		},
@@ -340,7 +356,7 @@ X.DB = (function(env) {
 			//this.DBValue = undefined; //TODO: calc it when we read object from server, and set ready = true
 			this.values = vals; //to make DBKeyValue and to trace changes in key 
 			this.pended_changes = {}; // objects; pended_changes === null when ready
-			this.ready = function() {
+			this.ready = ko.computed(function() {
 				for(var i in this.values) {
 					var v = env.read(this.values[i]);
 					if(X.isEmpty(v))
@@ -351,7 +367,7 @@ X.DB = (function(env) {
 						X.DB.sendToServer(this.pended_changes[i]);
 				this.pended_changes = null;
 				return true;
-			}
+			}, this);
 			this.sendToServer = function(elm) {
 				if(this.pended_changes) { // save in pended changes, is key is not ready
 					this.pended_changes[elm.DBFieldDescr.DBName] = elm; //unique!
@@ -442,12 +458,6 @@ X.modelBuilder = (function(env) {
 				(this.joins[key] = new X.modelBuilder.tableNode(this.$.target, this));
 		},
 		//x.rel() == X.modelBuilder.traverseRel(this.rel, arguments)
-
-		patchExternalCondition:function(root, cond) {
-			for(var i=0;i<cond.length;++i) {
-				cond[i].there = root[cond[i].there];
-			}
-		},
 		makeCondition: function(root, cond, context, rel_params) {
 			if(cond.cache && cond.cache[rel_params]) return cond.cache[rel_params]; //cached
 			//context.rel root.id, root.field1, field1 = const or field1 = field2
@@ -475,10 +485,15 @@ X.modelBuilder = (function(env) {
 			cond.cache = cond.cache || {};
 			return cond.cache[rel_params] = real_expr;
 		},
+		/*patchExternalCondition:function(root, cond) {
+			for(var i=0;i<cond.length;++i) {
+				cond[i].there = root[cond[i].there];
+			}
+		},*/
 		makeRelsAndAliases: function(table_node, context_node, alias) {
 			alias = alias || { current: 0};
 			table_node.alias = makeAlias(alias.current++);
-			if(table_node.external) this.patchExternalCondition(table_node, table_node.external)
+			//if(table_node.external) this.patchExternalCondition(table_node, table_node.external)
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
@@ -567,29 +582,16 @@ X.modelBuilder = (function(env) {
 				}
 			}
 		},
-		setupLinkedUsage:function(table_node) {
+		linkUsedConditions: function(table_node) {
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel) {
-					if(env.isMulti(rel) && env.used(rel)) {
-						rel.external = ko.computed(function() {
-							var def = rel.$;
-							if(!def.condition) return;
-							var rez = [];
-							for(var i=0;i<def.condition.length;++i) {
-								var cond = def.condition[i];
-								var expr = {there: cond.there, value: cond.value, here: cond.here};
-								if(rel.defer && cond.here) { 
-									expr.value = table_node[cond.here]();
-								}
-								rez.push(expr);
-							}
-							return rez;
-						});
+					if(env.used(rel) && env.isMulti(rel)) {
+						rel.external();
 					}
 					else if(rel.joins) {
 						for(var j in rel.joins) 
-							this.setupLinkedUsage(rel.joins[j]);
+							this.linkUsedConditions(rel.joins[j], table_node);
 					}
 				}
 			}
@@ -599,7 +601,7 @@ X.modelBuilder = (function(env) {
 				var rel = table_node[i];
 				if(rel) {
 					if(rel.auto && env.used(rel)) {
-						selects.push(rel.makeQuery(table_node));
+						selects.push(rel.makeQuery());
 					}
 					else if(rel.joins) {
 						for(var j in rel.joins) 
@@ -611,7 +613,7 @@ X.modelBuilder = (function(env) {
 		makeSQL: function(table_node, context_node) {
 			this.makeUpdatables(table_node);
 			this.makeRelsAndAliases(table_node, context_node);
-			this.setupLinkedUsage(table_node);
+			this.linkUsedConditions(table_node);
 			
 			var used = [];
 			this.collectUsage(table_node, used);
