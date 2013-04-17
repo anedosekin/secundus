@@ -1,0 +1,519 @@
+Общий вид команд посылаемых серверу:
+{
+"commands":[{com1},{com2},{com3}]
+}
+-----
+В ответе присутствует:
+исходная команда + "success":true\false + "rows":количество + информация об ошибках (если они есть, т.е. "success":false)
+Информация об ошибках: "msgtxt":"текст сообщения","sqlstate":"код" 
+
+Запрос нормально выполнен
+{
+"result":{
+"commands":[
+	{
+	"type":"update","table":"hhh","data":{"hhhcol":"tttt","hhhcol1":"bbbb"},"where":{"hhhcol":"1111","hhhcol1":"2222"},   <-исходная команда
+	"success":true,
+	"rows":1
+	}
+]}}
+Сервер вернул ошибку:
+{
+"result":{
+"commands":[
+	{
+	"type":"insert","table":"hhh","data":{"hhh.col":"11.11","hhhcol1":"2222","hhhcol2":"3333"},
+	"success":false,
+	"msgtxt":"Exec err.Unknown column 'hhh.col' in 'field list'",
+	"sqlstate":"42S22"
+	}
+]}}
+Так же могут возникать системные ошибки, они идут в отдельном массиве "errors".
+Пока что в errors есть только system.
+{
+"result":{"commands":[]},
+	"errors":{
+		"system":[{
+			"msgtxt":"SQLSTATE[HY000] [1045] Access denied for user 'user'@'localhost' (using password: YES)",
+			"sqlstate":1045
+		}]
+}}
+
+{
+	"result":{"commands":[]},"errors":{"system":[{"msgtxt":"JSON parse error","sqlstate":-1}]}
+}
+
+Если запрос подразумевает ответ содержащий данные то при успешном исполненни запроса данные помещаются в массив "ret_data":[]
+
+{
+"result":{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"*"}],"from":[{"table":"hhh"}],"ret_type":"json"},
+	"ret_data":[
+		{"idhhh":"1","hhhcol":"1","hhhcol1":"col2","hhhcol2":"fghfgh"},
+		{"idhhh":"2","hhhcol":"2","hhhcol1":"dfge4","hhhcol2":"fghfgh"},
+		{"idhhh":"3","hhhcol":"1","hhhcol1":"34tdrtdt","hhhcol2":"fgr"},
+		{"idhhh":"4","hhhcol":"1","hhhcol1":"345fg","hhhcol2":"rtfg"},
+	],
+	"success":true,
+	"rows":4}
+]}}
+
+=================================
+===                           ===
+=			INSERT				=
+===                           ===
+=================================
+
+{
+"commands":[
+{
+	"type":"insert","table":"hhh","data":{"hhhcol":"1111","hhhcol1":"2222","hhhcol2":"3333"}
+}
+]
+}
+----
+INSERT INTO hhh (hhhcol,hhhcol1,hhhcol2)  VALUES ('1111','2222','3333')
+
+=================================
+===                           ===
+=			UPDATE				=
+===                           ===
+=================================
+
+{
+"commands":[
+{
+	"type":"update","table":"hhh","data":{"hhhcol":"tttt","hhhcol1":"bbbb"},"where":{"hhhcol":"1111","hhhcol1":"2222"}
+}
+]
+}
+
+UPDATE hhh SET hhhcol='555',hhhcol1='dfg' WHERE hhhcol='1111' AND hhhcol='2222'
+
+=================================
+===                           ===
+=			DELETE				=
+===                           ===
+=================================
+Объединение условить только по AND
+{
+"commands":[
+{
+	"type":"delete","table":"hhh","where":{"hhhcol":"1111","hhhcol1":"2222"}
+}
+]
+}
+---
+DELETE FROM hhh WHERE hhhcol='1111' AND hhhcol='2222'
+
+=================================
+===                           ===
+=			SELECT				=
+===                           ===
+=================================
+Общая структура селекта:
+{
+	"type":"select",
+	"sel_body":{"expr":[],"from":[],"where":[]},
+	"ret_type":"json"
+}
+В массиве "expr" перечисляются поля для селекта.
+Каждое поле заключается в {}, отделяется запятыми.
+Поле {"field":"имя"}
+Пример:  
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"table3.f3"}],"from":[],"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT table3.f3 FROM  WHERE 
+=====
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"},{"field":"ta"}],"from":[],"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1,ta FROM  WHERE 
+=====
+Кроме полей можно поместить другой селект который должен быть связан с внешним. Связывание происходит в вложенном селекте в секции
+where. В "value" пишется имя столбца из внешнего селекта и добавляется "valkey":true
+Так же во вложенный селект нужно добавить информацию о том как будет называться колонка содержащая данные.
+"inctname":"имя" добавляется в тело sel_body.
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"},{"field":"ta"},{"sel_body":{"expr":[],"from":[],"where":[],"inctname":"ggggg"}}],"from":[],"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1,ta,(SELECT  FROM  WHERE ) FROM  WHERE 
+************************************************
+========== 1 select in fields ======
+select fff,eee,(select idhhh,hhhcol1,hhhcol2 from hhh where hhhcol=eee) from ddd where eee='1';
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"fff"},{"field":"eee"},
+	{
+		"sel_body":{"expr":[{"field":"idhhh"},{"field":"hhhcol1"},{"field":"hhhcol2"}],
+		"from":[{"table":"hhh"}],
+		"where":[
+			{"column":"hhhcol","operation":"=","value":"eee","valkey":true}
+		],
+		"inctname":"tttt"		
+		}
+	}
+	],
+	"from":[{"table":"ddd"}],
+	"where":[
+		{"column":"eee","operation":"=","value":"1"}
+	]},
+	"ret_type":"json"
+}
+]
+}
+========== 2 select in field ======
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"fff"},{"field":"eee"},
+	{
+		"sel_body":{"expr":[{"field":"idhhh"},{"field":"hhhcol1"},{"field":"hhhcol2"}],
+		"from":[{"table":"hhh"}],
+		"where":[
+			{"column":"hhhcol","operation":"=","value":"fff","valkey":true}
+		],
+		"inctname":"ggggg"		
+		}
+	},
+	{
+		"sel_body":{"expr":[{"field":"idhhh"},{"field":"hhhcol1"},{"field":"hhhcol2"}],
+		"from":[{"table":"hhh"}],
+		"where":[
+			{"column":"hhhcol","operation":"=","value":"eee","valkey":true}
+		],
+		"inctname":"tttt"		
+		}
+	}
+	],
+	"from":[{"table":"ddd"}],
+	"where":[
+		{"column":"eee","operation":"=","value":"1"}
+	]},
+	"ret_type":"json"
+}
+]
+}
+************************************************
+=================================
+=			FROM				=
+=================================
+В массив "from" данные так же помещаются в {}, для добавления таблиц используется ключ {"table":"имя"}.
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f3"}],
+		"from":[{"table":"tbl2"}],
+		"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f3 FROM tbl2 WHERE 
+=======
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f3"}],
+		"from":[{"table":"tbl2"},{"table":"tbl3"}],
+		"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f3 FROM tbl2,tbl3 WHERE 
+
+========     JOIN      ===
+Так же в "from" может быть указаны join-ы.
+Join можно задать простой, рекурсивный и последовательный.
+Описание:
+{
+	"join":
+		[
+			{"join_type":"тип (INNER, LEFT, RIGHT, CROSS и тд)"},
+			{"table":"имя первой таблицы"},
+			{"table_join":"имя присоединяемой таблицы"},
+			{"on_arg1":"аргумент для условия джойна №1"},
+			{"on_arg2":"аргумент для условия джойна №2"},
+			{"order_by":""} необязательное поле
+		]
+}
+эта крнструкция превратится в "table" "join_type" "table_join" ON "on_arg1"="on_arg2"
+======== simple join====
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"table1.f1"}],
+	"from":
+	[
+		{"join":
+			[
+				{"join_type":"INNER"},
+				{"table":"tbl2"},
+				{"table_join":"tbl3"},
+				{"on_arg1":"tbl1.a"},
+				{"on_arg2":"tbl3.a"},
+				{"order_by":"o_O"}
+			]
+		}
+	],
+	"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT table1.f1 FROM tbl2 INNER JOIN tbl3 ON tbl1.a=tbl3.a ORDER BY o_O 
+======= recursive join===
+Join можно использовать рекурсивно, т.е. вместо присоединяемой таблицы указать еще один join.
+В этом случае во внешнем join-е "table_join" не указывается, а в тело вставляется новый join:
+{
+	"join":
+		[
+			{"join_type":"тип (INNER, LEFT, RIGHT, CROSS и тд)"},
+			{"table":"имя первой таблицы"},
+			{
+			"join":
+				[
+					{"join_type":"тип (INNER, LEFT, RIGHT, CROSS и тд)"},
+					{"table":"имя первой таблицы"},
+					{"table_join":"имя присоединяемой таблицы"},
+					{"on_arg1":"аргумент для условия джойна №1"},
+					{"on_arg2":"аргумент для условия джойна №2"},
+					{"order_by":""} необязательное поле
+				]
+			}
+			{"on_arg1":"аргумент для условия джойна №1"},
+			{"on_arg2":"аргумент для условия джойна №2"},
+			{"order_by":""} необязательное поле
+		]
+}
+Пример:
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"table1.f1"}],
+	"from":
+	[
+		{"join":
+			[
+				{"join_type":"INNER"},
+				{"table":"tbl1"},
+				{"join":
+					[
+					{"join_type":"LEFT"},
+					{"table":"tbl2"},
+					{"table_join":"tbl3"},
+					{"on_arg1":"tbl2.a"},
+					{"on_arg2":"tbl3.a"},
+					{"order_by":"barsuk.net"}
+					]
+				},
+				{"on_arg1":"tbl1.a"},
+				{"on_arg2":"tbl3.a"},
+				{"order_by":"o_O"}
+			]
+		}
+	],
+	"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT table1.f1 FROM tbl1 INNER JOIN (tbl2 LEFT JOIN tbl3 ON tbl2.a=tbl3.a ORDER BY barsuk.net) ON tbl1.a=tbl3.a ORDER BY o_O
+Также можно задать join-ы последовательно, при этом "table" задается только у первой таблицы.
+====== posledovatelnii join ====
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"table1.f1"}],
+	"from":
+	[
+		{"join":
+			[
+				{"join_type":"INNER"},
+				{"table":"tbl1"},
+				{"table_join":"tbl2"},
+				{"on_arg1":"tbl1.a"},
+				{"on_arg2":"tbl3.a"},
+				{"order_by":"o_O"}
+			]
+		},
+		{"join":
+			[
+				{"join_type":"LEFT"},
+				{"table_join":"tbl3"},
+				{"on_arg1":"tbl1.a"},
+				{"on_arg2":"tbl3.a"},
+				{"order_by":"o_O"}
+			]
+		}
+	],
+	"where":[]},
+	"ret_type":"json"
+}
+]
+}
+SELECT table1.f1 FROM tbl1 INNER JOIN tbl2 ON tbl1.a=tbl3.a ORDER BY o_O  LEFT JOIN tbl3 ON tbl1.a=tbl3.a ORDER BY o_O
+
+====== SELECT IN JOIN ==========
+Вместо таблицы, также можно использовать новый select, получается следующая конструкция:
+{"table_join":{"sel_body":{"expr":[],"from":[],"where":[]}}}
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"table1.f1"}],
+	"from":
+	[
+		{"join":
+			[
+				{"join_type":"INNER"},
+				{"table":"tbl2"},
+				{"table_join":{"sel_body":{"expr":[{"field":"fil1"}],"from":[{"table":"tbl7"}],"where":[]}}},
+				{"on_arg1":"tbl1.a"},
+				{"on_arg2":"tbl3.a"},
+				{"order_by":"o_O"}
+			]
+		}
+	],
+	"where":[]},
+	"ret_type":"json"
+}
+]
+}
+"SELECT table1.f1 FROM tbl2 INNER JOIN  (SELECT fil1 FROM tbl7 WHERE ) ON tbl1.a=tbl3.a ORDER BY o_O  WHERE "
+================================
+=			WHERE			   =
+================================
+Первое условие:
+{
+	"column":"имя",
+	"operation":"= < > IN LIKE и тд..",
+	"value":"значение" или "value":["значение1","значение2"]
+}
+Если надо несколько условий то в следующем условии добавляется условие "add:"AND или OR"
+{
+	{
+		"column":"имя",
+		"operation":"= < > IN LIKE и тд..",
+		"value":"значение" или "value":["значение1","значение2"]
+	},
+	{
+		"add:"AND или OR",
+		"column":"имя",
+		"operation":"= < > IN LIKE и тд..",
+		"value":"значение" или "value":["значение1","значение2"]
+	}
+	
+}
+Если требуется составить условие в котором в "value" надо поместить имя колонки, то требуется указать на это, добавив:
+"valcolumn":true
+
+Примеры:
+==== value - значение ===
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"}],
+	"from":[{"table":"tbl"}],
+	"where":[
+		{"column":"f1","operation":"=","value":"barsuk"}
+	]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1 FROM tbl WHERE  f1='barsuk'
+==== value - имя колонки ===
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"*"}],
+	"from":[{"table":"hhh"}],
+	"where":[
+		{"column":"idhhh","operation":"=","value":"hhhcol","valcolumn":true}
+	]},
+	"ret_type":"json"
+}
+]
+}
+SELECT * FROM hhh WHERE  idhhh = hhhcol
+======== AND/OR IN SELECT   ====
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"}],
+	"from":[{"table":"tbl"}],
+	"where":[
+		{"column":"f1","operation":"=","value":"barsuk"},
+		{"add":"OR","column":"f2","operation":"<","value":"homiak"},
+		{"add":"AND","column":"f3","operation":"<>","value":"medved"}
+	]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1 FROM tbl WHERE  f1='barsuk'  OR f2<'homiak'  AND f3<>'medved'
+======== "IN" IN VAL     =======
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"}],
+	"from":[{"table":"tbl"}],
+	"where":[
+		{"column":"f1","operation":"IN","value":["a","b","c"]}
+	]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1 FROM tbl WHERE  f1 IN  (a,b,c) 
+======== SELECT IN VALUE =======
+{
+"commands":[
+{
+	"type":"select",
+	"sel_body":{"expr":[{"field":"f1"}],
+	"from":[{"table":"tbl"}],
+	"where":[
+		{"column":"f1","operation":"=","value":{"sel_body":{"expr":[{"field":"fil1"}],"from":[{"table":"tbl7"}],"where":[]}}}
+	]},
+	"ret_type":"json"
+}
+]
+}
+SELECT f1 FROM tbl WHERE  f1= (SELECT fil1 FROM tbl7 WHERE )

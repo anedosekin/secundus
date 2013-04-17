@@ -1,0 +1,343 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='../knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='../knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='../xjs/x.js'></script>
+<script type='text/javascript' src='../xjs/x.ko.patch.js'></script>
+<script type='text/javascript' src='../xjs/x.environment.js'></script>
+<script type='text/javascript' src='../xjs/x.db.js'></script>
+<script type='text/javascript' src='../xjs/x.model.build.js'></script>
+<script type='text/javascript' src='../xjs/x.model.run.js'></script>
+<link rel=stylesheet type="text/css" href="../dev/sko.css">
+<style>
+#workspace {
+	border-radius:1em;
+	border:1px solid gray;
+	padding:2em;
+	counter-reset:testlist;
+}
+.result { margin-top:2em;}
+.result:before {
+	counter-increment:testlist;
+	content: counter(testlist) ". ";
+}
+</style>
+<script>
+var testArray = [
+{
+	name:'Обычная таблица без связей, три поля в таблице, одно выводится',
+	model:{
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			f1:{caption:'Ф 1', pk:true}
+		}
+	},
+	type:'multi',
+	startTable:'T0',
+	html:'<div data-bind="foreach:T0"><p><span data-bind="text:f1"></span></p></div>',
+	sql:'{"select":["a.f1"],"from":[{"table":"T0","alias":"a","on":null}],"selects":[]}',
+	sqlanswer:[{'a.f1':'А'},{'a.f1':'В'},{'a.f1':'Б'}],
+	htmlanswer:'<div data-bind="foreach:T0"><p><span data-bind="text:f1">А</span></p><p><span data-bind="text:f1">В</span></p><p><span data-bind="text:f1">Б</span></p></div>'
+},
+{
+	name:'Две таблицы, один релейшен между ними. Поле из одной таблицы и поле из под релейшена. Релейшен на двух полях',
+	model:{
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			rel0:{caption:'Человек', target:'T1',condition:[{there:'id',here:'rel0'}, {there:'f2',here:'surname'}]},
+			surname:{caption:'Фамилия'}
+		},
+		T1:{
+			id:{caption:'id', pk: true},
+			f1:{caption:'Ф 1'},
+			f2:{caption:'Фамилия',pk: true}
+		}
+	},
+	type:'multi',
+	startTable:'T0',
+	html:'<div data-bind="foreach:T0"><p><span data-bind="text:f0"></span><span data-bind="text:rel0().f1"></span></p></div>',
+	sql:'{"select":["a.f0","b.f1"],"from":[{"table":"T0","alias":"a","on":null},[{"table":"T1","alias":"b","on":[{"b.id":"a.rel0"},{"b.f2":"a.surname"}]}]],"selects":[]}',
+	sqlanswer:[{'a.f1':'А','b.f1':'Фёдоров'},{'a.f1':'В','b.f1':'Иванов'},{'a.f1':'Б','b.f1':'Галкин'}],
+	htmlanswer:'<div data-bind="foreach:T0"><p><span data-bind="text:f0">А</span><span data-bind="text:rel0().f1">Фёдоров</span></p><p><span data-bind="text:f0">В</span><span data-bind="text:rel0().f1">Иванов</span></p><p><span data-bind="text:f0">Б</span><span data-bind="text:rel0().f1">Галкин</span></p></div>'
+},
+{
+	name:'Три таблицы связанные релейшенами в цепочку, одно поле из-под средней таблицы, второе поле из под бэкрела(с автозаполнением), третье поле из-под релейшена. Релейшен на третью таблицу задан с дополнительным условием',
+	model:{
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			rel0:{caption:'Человек',target:'T1',condition:[{there:'id',here:'rel0'}, {there:'f2',here:'surname'}]},
+			surname:{caption:'Фамилия'}
+		},
+		T1:{
+			id:{caption:'id', pk:true},
+			f1:{caption:'Ф 1'},
+			f2:{caption:'Фамилия',pk:true},
+			brel0:{caption:'Бэкрел 0',target:'T0',condition:[{there:'rel0', here:'id'}, {there:'surname', here:'f2'}], array:'auto'},
+			rel1:{caption:'Рел 1',target:'T2',condition:[{there:'f2',value:'?'},{there:'year',value:'?'},{there:'id',here:'rel1'}]},
+		},
+		T2:{
+			year:{ caption: 'Год'},
+			id:{caption:'id', pk:true},
+			f2:{caption:'Ф 2'},
+			rel2:{caption:'Рел 2',target:'T3',condition:[{there:'id',here:'rel2'}]}
+		}
+	},
+	type:'multi',
+	startTable:'T1',
+	html:'<div data-bind="foreach:T1"><p><span data-bind="text:f1"></span><span data-bind="text:rel1(\'Иванов:2012\').f2"></span><div data-bind="foreach:brel0"><span data-bind="text:rel0().f1"></span></div></p></div>',
+	sql:'{"select":["a.f1","a.brel0","b.f2"],"from":[{"table":"T1","alias":"a","on":null},[{"table":"T2","alias":"b","on":[{"b.f2":"Иванов"},{"b.year":"2012"},{"b.id":"a.rel1"}]}]],"selects":[{"select":["b.f1"],"from":[{"table":"T0","alias":"a","on":null,"external":[{"a.rel0":"id"},{"a.surname":"f2"}]},[{"table":"T1","alias":"b","on":[{"b.id":"a.rel0"},{"b.f2":"a.surname"}]}]],"selects":[]}]}',
+	sqlanswer:[{'a.f1':'А','a.brel0':[{'b.f1':'1'},{'b.f1':'2'},{'b.f1':'3'}],'b.f2':'X'},{'a.f1':'C','a.brel0':[{'b.f1':'4'},{'b.f1':'5'},{'b.f1':'6'}],'b.f2':'Y'},{'a.f1':'B','a.brel0':[],'b.f2':'X'}],
+	htmlanswer:'<div data-bind="foreach:T1"><p><span data-bind="text:f1">А</span><span data-bind="text:rel1(\'Иванов:2012\').f2">X</span></p><div data-bind="foreach:brel0"><span data-bind="text:rel0().f1">1</span><span data-bind="text:rel0().f1">2</span><span data-bind="text:rel0().f1">3</span></div><p></p><p><span data-bind="text:f1">C</span><span data-bind="text:rel1(\'Иванов:2012\').f2">Y</span></p><div data-bind="foreach:brel0"><span data-bind="text:rel0().f1">4</span><span data-bind="text:rel0().f1">5</span><span data-bind="text:rel0().f1">6</span></div><p></p><p><span data-bind="text:f1">B</span><span data-bind="text:rel1(\'Иванов:2012\').f2">X</span></p><div data-bind="foreach:brel0"></div><p></p></div>'
+},
+{
+	name:'Инпут в таблице изменяет значение и оно сохраняется',
+	model:{
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			f1:{caption:'Ф 1', pk:true}
+		}
+	},
+	type:'multi',
+	startTable:'T0',
+	html:'<div data-bind="foreach:T0"><p><span data-bind="text:f1"></span><input data-bind="value:f1"><button data-bind="click:destroyElement">Удалить</button></p></div>',
+	sql:'{"select":["a.id","a.f1"],"from":[{"table":"T0","alias":"a","on":null}],"selects":[]}',
+	sqlanswer:[{'a.id':'111','a.f1':'А'}],
+	htmlanswer:'<div data-bind="foreach:T0"><p><span data-bind="text:f1">А</span><input data-bind="value:f1"><button data-bind="click:destroyElement">Удалить</button></p></div>',
+	actions:[
+		{
+			imperativ:'Измените значение инпута - введите строку "zzz" - и уберите с него фокус',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T0","key":\\{"id":"111","f1":"А"\\},"oid":"-(\\d+)","values":\\{"f1":".*"\\}\\}\\]\\}$',
+			answer:'{"cmds":[{"table":"T0","key":{"id":"111","f1":"А"},"oid":"-%%1%","values":{"f1":"new_zzz"}}]}',
+			htmlstate:'<div data-bind="foreach:T0"><p><span data-bind="text:f1">new_zzz</span><input data-bind="value:f1"><button data-bind="click:destroyElement">Удалить</button></p></div>'
+		},
+		{
+			imperativ:'Нажмите кнопку "Удалить"',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T0","key":\\{"id":"111","f1":"new_zzz"\\},"oid":"-(\\d+)"\\}\\]\\}$',
+			answer:'{"cmds":[{"table":"T0","key":{"id":"111","f1":"А"},"oid":"-%%1%"}]}',
+			htmlstate:'<div data-bind="foreach:T0"></div>'
+		}
+	],
+},
+{
+	name:'Инпут по бэкрелу в таблице изменяет значение и оно сохраняется',
+	model:{
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			rel0:{caption:'Человек',target:'T1',condition:[{there:'id',here:'rel0'}, {there:'f2',here:'surname'}]},
+			surname:{caption:'Фамилия'}
+		},
+		T1:{
+			id:{caption:'id', pk:true},
+			f1:{caption:'Ф 1'},
+			f2:{caption:'Фамилия',pk:true},
+			brel0:{caption:'Бэкрел 0',target:'T0',condition:[{there:'rel0', here:'id'}, {there:'surname', here:'f2'}], array:'auto'},
+			rel1:{caption:'Рел 1',target:'T2',condition:[{there:'f2',value:'?'},{there:'year',value:'?'},{there:'id',here:'rel1'}]},
+		},
+		T2:{
+			year:{ caption: 'Год'},
+			id:{caption:'id', pk:true},
+			f2:{caption:'Ф 2'},
+			brel1:{caption:'Бэкрел 1', target:'T1',condition:[{there:'rel1', here:'id'}], array:'defer'},
+			brel2:{caption:'Бэкрел 2', target:'T1',condition:[{there:'rel1', here:'id'}], array:'auto'},
+			rel2:{caption:'Рел 2',target:'T3',condition:[{there:'id',here:'rel2'}]}
+		}
+	},
+	type:'multi',
+	startTable:'T2',
+	html:'<div data-bind="foreach:T2"><p><span data-bind="text:f2"></span><button data-bind="click:brel1.sendQuery">Послать запрос</button><div data-bind="foreach:brel1"><span data-bind="text:f2"></span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2"></span></div></p></div>',
+	sql:'{"select":["a.id","a.f2","a.brel2"],"from":[{"table":"T2","alias":"a","on":null}],"selects":[{"select":["a.f2"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"id"}]}],"selects":[]}]}',
+	sqlanswer:[{'a.id':'111','a.f2':'Item','a.brel2':[{'a.f2':'Subitem'}]}],
+	htmlanswer:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>',
+	actions:[
+		{
+			imperativ:'Нажмите "Послать запрос"',
+			sqlmatch:'^\\{"select":\\["a.id","a.f2"\\],"from":\\[\\{"table":"T1","alias":"a","on":null,"external":\\[\\{"a.rel1":"111"\\}\\]\\}\\],"selects":\\[\\]\\}$',
+			answer:[{'a.id':'aaa','a.f2':'Subitem-hidden'}],
+			htmlstate:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"><span data-bind="text:f2">Subitem-hidden</span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>'
+		},
+		{
+			imperativ:'Измените первый инпут',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T1","key":\\{"id":"aaa","f2":"Subitem-hidden"\\},"oid":"-(\\d+)","values":\\{"f2":"(.*)"\\}\\}\\]\\}$',
+			answer:'{"cmds":[{"table":"T1","key":{"id":"aaa","f2":"Subitem-hidden"},"oid":"-%%1%","values":{"f2":"Data in base"}}]}',
+			htmlstate:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"><span data-bind="text:f2">Data in base</span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>'
+		}
+	],
+},
+{
+	name:'Одна запись. Две таблицы, один релейшен между ними. Поле из одной таблицы и поле из под релейшена. Релейшен на двух полях.',
+	model:{
+		T10:{
+			id:{caption:'id', pk:true },
+			f3:{caption:'Ф 0'},
+			rel0:{caption:'Человек', target:'T11',condition:[{there:'id',here:'rel0'}, {there:'f2',here:'surname'}]},
+			surname:{caption:'Фамилия'}
+		},
+		T11:{
+			id:{caption:'id', pk: true},
+			f1:{caption:'Ф 1'},
+			f2:{caption:'Фамилия',pk: true}
+		}
+	},
+	type:'single',
+	startTable:'T10',
+	html:'<div><p><span data-bind="text:f3"></span><span data-bind="text:rel0().f1"></span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>',
+	sql:'{"select":["a.id","a.f3","b.id","b.f1","b.f2"],"from":[{"table":"T10","alias":"a","on":null},[{"table":"T11","alias":"b","on":[{"b.id":"a.rel0"},{"b.f2":"a.surname"}]}]],"selects":[]}',
+	sqlanswer:{'a.id':'aaa','a.f3':'А','b.id':'111','b.f1':'Фёдоров','b.f2':'Алексей'},
+	htmlanswer:'<div><p><span data-bind="text:f3">А</span><span data-bind="text:rel0().f1">Фёдоров</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>',
+	actions:[
+		{
+			imperativ:'Измените оба инпута',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T10","key":\\{"id":"aaa"\\},"oid":"-(\\d+)","values":\\{"f3":".*"\\}\\}\\]\\}$',
+			answer:'{"cmds":[{"table":"T10","key":{"id":"aaa"},"oid":"-%%1%","values":{"f3":"Data in base"}}]}',
+			htmlstate:'<div><p><span data-bind="text:f3">Data in base</span><span data-bind="text:rel0().f1">Data in base</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>'
+		},
+		{
+			imperativ:'',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T11","key":\\{"id":"111","f2":"Алексей"\\},"oid":"-(\\d+)","values":\\{"f1":".*"\\}\\}\\]\\}$',
+			answer:'{"cmds":[{"table":"T11","key":{"id":"111","f2":"Алексей"},"oid":"-%%1%","values":{"f1":"Data in base"}}]}',
+			htmlstate:'<div><p><span data-bind="text:f3">Data in base</span><span data-bind="text:rel0().f1">Data in base</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>'
+		}
+	]
+},
+];
+function patchModel(model) {
+	for(var i in model) {
+		var table = model[i];
+		table.name = i;
+		for(var j in table) {
+			var field = table[j];
+			field.name = j;
+			if(field.target) {
+				field.target = model[field.target];
+			}
+		}
+	}
+	return model;
+}
+var SQLTODATA = null;
+function runTest(test, name) {
+	var workspace = document.getElementById('workspace');
+	var log = document.getElementById('log');
+	
+	patchModel(test.model);
+	
+	var cell = document.createElement("DIV");
+	cell.id = name;
+	cell.innerHTML = test.html;
+	var testResult = document.createElement("DIV");
+	testResult.innerHTML = test.name;
+	testResult.className = 'result';
+	testResult.style.color = 'green';
+	
+	workspace.appendChild(testResult);
+	workspace.appendChild(cell);
+	
+	
+	if(test.actions) {
+		for(var j=0;j<test.actions.length;++j) {
+			var action = test.actions[j];
+			action.actionName = document.createElement("DIV");
+			action.actionName.innerHTML = action.imperativ;
+			workspace.appendChild(action.actionName);
+		}
+	}
+	try {
+		var M = eval('X.runModel.'+test.type)(test.model[test.startTable]);
+		ko.applyBindings(M, cell);
+		X.runModel.sendQuery(M);
+		var rendplace = document.getElementById('renderplace');
+		rendplace.innerHTML = test.htmlanswer;
+		if(cell.innerHTML !== rendplace.innerHTML) throw "answer isnt equal to etalon";
+	}
+	catch(e) {
+		testResult.style.color = 'red';
+		testResult.innerHTML += '<br>Error: '+e;
+		throw e;
+	}
+}
+function runTests(tests) {
+	X.DBdefaultEnv.send = function(data, onresponce, onerror) {
+		/*
+		var p = X.XHR("POST", this.url, data)
+				.then(onresponce, onerror)
+				.done();
+		*/
+		var seen = [];
+		document.getElementById('json').innerHTML = JSON.stringify(data,
+			function(key, val) {return val});
+		document.getElementById('jsonpaste').innerHTML = JSON.stringify(data,
+			function(key, val) {return val}, 2);
+		onresponce(SQLTODATA(data));
+	}
+	setInterval( function() {
+		for(var i=0; i<tests.length;++i) {
+		var test = tests[i];
+		var cell = document.getElementById('test'+i);
+		if(cell && test.actions)
+			for(var j=0;j<test.actions.length;++j) {
+				var action = test.actions[j];
+				if(action.actionName) {
+					if(!action.done && action.htmlstate !== cell.innerHTML) {
+						action.actionName.style.color = 'red';
+					}
+					else {
+						action.actionName.style.color = 'green';
+						action.done = true;
+					}
+				}
+			}
+		}
+	}, 100);
+	SQLTODATA = function(sql) {
+		var sqlstr = JSON.stringify(sql);
+		for(var i=0; i<tests.length;++i) {
+			var test = tests[i];
+			if(sqlstr === test.sql) return test.sqlanswer;
+			if(test.actions) {
+				for(var j=0;j<test.actions.length;++j) {
+					var action = test.actions[j];
+					if(sqlstr.match(new RegExp(action.sqlmatch,'g'))) {
+						var p = 0;
+						var nums = [];
+						while((p = action.answer.indexOf('%%', p)) != -1) {
+							var e = action.answer.indexOf('%', p+2);
+							var num = action.answer.substr(p+2, e-p-2);
+							nums.push({name:new RegExp('%%'+num+'%','g'), value:eval('RegExp.$'+num)});
+							p = e;
+						}
+						for(var i = 0;i<nums.length;++i) {
+							action.answer = action.answer.replace(nums[i].name,nums[i].value);
+						}
+						return action.answer;
+					}
+				}
+			}
+		}
+	}
+	var personalExec = false;
+	for(var i=0;i<tests.length;++i) {
+		if(tests[i].exec) {
+			runTest(tests[i], 'test'+i);
+			personalExec = true;
+		}
+	}
+	if(!personalExec)
+		for(var i=0; i<tests.length;++i) {
+			runTest(tests[i], 'test'+i);
+		}
+}
+</script>
+</head>
+<body onload="runTests(testArray);">
+<div id=workspace></div>
+<div id=json></div>
+<pre id=jsonpaste></pre>
+<div id=renderplace></div>
+</body>
+</html>

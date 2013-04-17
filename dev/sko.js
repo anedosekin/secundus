@@ -14,7 +14,7 @@ ko plugin
 */
 /*html*/
 var sko_html = {
-relation:'<div class=relation><input type=hidden data-bind=\'value:$rel.value\'><input data-bind=\'value: $rel.text, valueUpdate: "afterkeydown", event:{keydown:$rel.acceptItem, blur:$rel.lostFocus}\'/><table data-bind=\'visible: $rel.text && $rel.inputChanged, event:{mousedown:$rel.gotFocus}\' cellspacing="0" cellpadding="0" border="0"><thead><tr data-bind=\'foreach:$rel.tableHead, visible:$rel.tableRows().length && $rel.tableRows()[0].length>2\'><th><span data-bind=\'text:$data\'></span></th></thead><tbody data-bind=\'foreach:$rel.tableRows\'><tr class=tablerow data-bind=\'click: $rel.chooseItem, css:{ current: $index()==$rel.currentIndex() }, foreach:$data\'><td data-bind=\'text:$data\'></tr></tbody></table></div>'
+relation:'<div class=relation><input type=hidden data-bind="value:$rel.value"><input data-bind=\'value: $rel.text, valueUpdate: "afterkeydown", event:{keydown:$rel.acceptItem, blur:$rel.lostFocus}\'/><table data-bind="visible: $rel.text && $rel.inputChanged, event:{mousedown:$rel.gotFocus}" cellspacing="0" cellpadding="0" border="0"><thead><tr data-bind="foreach:$rel.tableHead, visible:$rel.tableRows().length && $rel.tableRows()[0].length>2"><th><span data-bind="text:$data"></span></th></thead><tbody data-bind=\'foreach:$rel.tableRows\'><tr class=tablerow data-bind=\'click: $rel.chooseItem, css:{ current: $index()==$rel.currentIndex() }, foreach:$data\'><td data-bind=\'text:$data\'></tr></tbody></table></div>'
 }
 function RelationExtend(relation) {
 	var self = this;

@@ -1,0 +1,31 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='../knockout/knockout-2.2.1.debug.js'></script>
+</head>
+<body>
+<span data-bind="text:f1"></span>
+<script>
+function init() {
+	ko.extenders.my = function(target, option) {
+		return ko.computed({
+		read:function() {
+			console.log('--', this);
+			return target();
+		},
+		write:function(value) { target(value); }
+		});
+	}
+	model = {
+		f1: ko.observable('aaaa').extend({my:'1'}),
+		f2:ko.observable('bbb')
+	}
+	ko.applyBindings(model);
+	console.log('after bind');
+	console.log(model.f1('bbb'));
+	console.log(model.f1());
+}
+init();
+</script>
+</body>
+</html>

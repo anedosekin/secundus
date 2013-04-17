@@ -1,0 +1,44 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='../knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='../knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='../xjs/x.js'></script>
+<script type='text/javascript' src='../xjs/x.ko.patch.js'></script>
+<script type='text/javascript' src='../xjs/x.environment.js'></script>
+<script type='text/javascript' src='../xjs/x.db.js'></script>
+<script type='text/javascript' src='../xjs/x.model.build.js'></script>
+<script type='text/javascript' src='../xjs/x.model.run.js'></script>
+<link rel=stylesheet type="text/css" href="../dev/sko.css">
+<style>
+.ktable {
+	border:1px solid gray;
+	border-radius:0.2em;
+}
+#add_city_record {
+	padding:2em;
+}
+</style>
+</head>
+<body onload="Init();">
+<div data-bind="foreach:X">
+<div name="r" data-bind="text:f1"></div>
+</div>
+<button onclick="model.X.removeAll()">Удаление</button>
+<button onclick="XX()">ЗАпрос</button>
+<script>
+var model = {
+		X:ko.observableArray([{f1:ko.observable('a1'),f2:ko.observable('a2')}])
+	}
+function XX() {
+	var e = document.getElementsByName('r')[0];
+	ko.cleanNode(e);
+	e.setAttribute("data-bind", "text:f2");
+	ko.applyBindings(model.X()[0], e);
+}
+function Init() {
+	ko.applyBindings(model);
+}
+</script>
+</body>
+</html>

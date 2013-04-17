@@ -1,0 +1,153 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='x.js'></script>
+<script type='text/javascript' src='x.ko.patch.js'></script>
+<script type='text/javascript' src='x.environment.js'></script>
+<script type='text/javascript' src='x.db.js'></script>
+<script type='text/javascript' src='x.model.build.js'></script>
+<script type='text/javascript' src='x.model.run.js'></script>
+<link rel=stylesheet type="text/css" href="knockout/sko.css">
+<style>
+</style>
+</head>
+<body onload="Init();">
+<div data-bind="foreach:T1">
+	<p>
+	<span data-bind="text:f1"></span>
+	<span data-bind="text:f2"></span>
+	<span data-bind="text:rel1().year"></span>
+	<input data-bind="value:rel1().rel2().rel3().f1">
+	<div data-bind="foreach:brel0">
+		<span data-bind="text:f0" style="color:red;"></span>
+	</div>
+	<span data-bind="text:rel1().rel2().f3"></span>
+	<span data-bind="text:rel1().rel2().rel3().f1"></span>
+	<div data-bind="foreach:rel1().brel1">
+		<span data-bind="text:f1" style="color:green;"></span>
+	</div>
+	<a data-bind="visible:rel1().brel1.ready()">готово</a>
+	<a data-bind="click:rel1().brel1.sendQuery">раскрыть</a>
+	<hr>
+	</p>
+	<!--p data-bind="text:rel1.value"></p>
+	<p data-bind="text:rel1('Россия:2012').f2"></p>
+	<p data-bind="text:rel1('Россия:2013').f2"></p>
+		<div data-bind="foreach:rel12()">
+			<p data-bind="text:f2"></p>
+		</div>
+	<p data-bind="text:rel1().rel2.value"></p>
+	<p data-bind="text:rel1().rel2().f3"></p-->
+</div>
+<pre id="json" style="background-color:lightgreen"></pre>
+<pre id="jsonpaste"></pre>
+<script>
+	function patchModel(model) {
+		for(var i in model) {
+			var table = model[i];
+			table.name = i;
+			for(var j in table) {
+				var field = table[j];
+				field.name = j;
+				if(field.target) {
+					field.target = model[field.target];
+				}
+			}
+		}
+		return model;
+	}
+	var metaModel = patchModel({
+		T0:{
+			id:{caption:'id', pk:true },
+			f0:{caption:'Ф 0'},
+			rel0:{caption:'',target:'T1',condition:[{there:'id',here:'rel0'}]}
+		},
+		T1:{
+			id:{caption:'id', pk:true},
+			f1:{caption:'Ф 1'},
+			f2:{caption:'Фамилия'},
+			brel0:{caption:'Бэкрел 0',target:'T0',condition:[{there:'rel0',here:'id'}], array:'auto'},
+			rel1:{caption:'Рел 1',target:'T2',condition:[{there:'f2',value:'?'},{there:'year',value:'?'},{there:'id',here:'rel1'}]},
+		},
+		T2:{
+			year:{ caption: 'Год'},
+			id:{caption:'id', pk:true},
+			f2:{caption:'Ф 2'},
+			rel2:{caption:'Рел 2',target:'T3',condition:[{there:'id',here:'rel2'}]},
+			brel1:{caption:'Бэкрел 1',target:'T1',condition:[{there:'rel1',here:'id'}], array:'defer'}
+		},
+		T3:{
+			id:{caption:'id', pk:true},
+			f3:{caption:'Ф 3'},
+			rel3:{caption:'Рел циклический',target:'T1',condition:[{there:'id',here:'rel3'}]},
+			brel2:{caption:'Бэкрел 2',target:'T2',condition:[{there:'rel2',here:'id'}], array:'defer'}
+		}
+	});
+function SQLTODATA(sql) {
+	var sqlstr = JSON.stringify(sql);
+	if(sqlstr=='{"select":["a.f1","a.f2","a.brel0","b.year","b.id","c.f3","d.id","d.f1"],"from":[{"table":"T1","alias":"a","on":null},[{"table":"T2","alias":"b","on":[{"b.f2":"?"},{"b.year":"?"},{"b.id":"a.rel1"}]},[{"table":"T3","alias":"c","on":[{"c.id":"b.rel2"}]},[{"table":"T1","alias":"d","on":[{"d.id":"c.rel3"}]}]]]],"selects":[{"select":["a.f0"],"from":[{"table":"T0","alias":"a","on":null,"external":[{"a.rel0":"id"}]}],"selects":[]}]}') {
+		return [
+			{'a.f1':'Иван','a.f2':'Иванов','a.brel0':[{'f2':1},{'f2':2},{'f2':3}],'b.year':'1981','b.id':'111','c.f3':'Москва','d.id':'a1','d.f1':'Иван'},
+			{'a.f1':'Мария','a.f2':'Петров','a.brel0':[{'f2':4},{'f2':5}],'b.year':'1982','b.id':'222','c.f3':'Воронеж','d.id':'a2','d.f1':'Мария'},
+			{'a.f1':'Грегори','a.f2':'Сидоров','a.brel0':[{'f2':6},{'f2':7},{'f2':8}],'b.year':'1979','b.id':'333','c.f3':'Сочи','d.id':'a3','d.f1':'Грегори'},
+			{'a.f1':'Марк','a.f2':'Третьяк','a.brel0':[{'f2':9}],'b.year':'1983','b.id':'444','c.f3':'Санкт-Петербург','d.id':'a4','d.f1':'Марк'},
+			{'a.f1':'Смит','a.f2':'Джексон','a.brel0':[{'f2':10},{'f2':11},{'f2':12},{'f2':13}],'b.year':'1991','b.id':'555','c.f3':'Москва','d.id':'a5','d.f1':'Смит'},
+			{'a.f1':'Трелони','a.f2':'Ванкрофт','a.brel0':[{'f2':14},{'f2':15}],'b.year':'1954','b.id':'666','c.f3':'Волгоград','d.id':'a6','d.f1':'Трелони'}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"777"}]}],"selects":[]}') {
+		return [
+			{'a.f2':7},{'a.f2':8},{'a.f2':9}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"666"}]}],"selects":[]}') {
+		return [
+			{'a.f2':6},{'a.f2':7},{'a.f2':8}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"555"}]}],"selects":[]}') {
+		return [
+			{'a.f2':5},{'a.f2':6},{'a.f2':7}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"444"}]}],"selects":[]}') {
+		return [
+			{'a.f2':4},{'a.f2':5},{'a.f2':6}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"333"}]}],"selects":[]}') {
+		return [
+			{'a.f2':3},{'a.f2':4},{'a.f2':5}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"222"}]}],"selects":[]}') {
+		return [
+			{'a.f2':2},{'a.f2':3},{'a.f2':4}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"111"}]}],"selects":[]}') {
+		return [
+			{'a.f2':1},{'a.f2':2},{'a.f2':3}
+		];
+	}
+	if(sqlstr=='{"select":["a.f1","a.f2","a.brel0","b.year","b.id","c.f3","d.f1"],"from":[{"table":"T1","alias":"a","on":null},[{"table":"T2","alias":"b","on":[{"b.f2":"?"},{"b.year":"?"},{"b.id":"a.rel1"}]},[{"table":"T3","alias":"c","on":[{"c.id":"b.rel2"}]},[{"table":"T1","alias":"d","on":[{"d.id":"c.rel3"}]}]]]],"selects":[{"select":["a.f0"],"from":[{"table":"T0","alias":"a","on":null,"external":[{"a.rel0":"id"}]}],"selects":[]}]}') {
+		return [
+			{'a.f1':'Иван','a.f2':'Иванов','a.brel0':[{'f2':1},{'f2':2},{'f2':3}],'b.year':'1981','b.id':'111','c.f3':'Москва','d.f1':'Иван'},
+			{'a.f1':'Мария','a.f2':'Петров','a.brel0':[{'f2':4},{'f2':5}],'b.year':'1982','b.id':'222','c.f3':'Воронеж','d.f1':'Мария'},
+			{'a.f1':'Грегори','a.f2':'Сидоров','a.brel0':[{'f2':6},{'f2':7},{'f2':8}],'b.year':'1979','b.id':'333','c.f3':'Сочи','d.f1':'Грегори'},
+			{'a.f1':'Марк','a.f2':'Третьяк','a.brel0':[{'f2':9}],'b.year':'1983','b.id':'444','c.f3':'Санкт-Петербург','d.f1':'Марк'},
+			{'a.f1':'Смит','a.f2':'Джексон','a.brel0':[{'f2':10},{'f2':11},{'f2':12},{'f2':13}],'b.year':'1991','b.id':'555','c.f3':'Москва','d.f1':'Смит'},
+			{'a.f1':'Трелони','a.f2':'Ванкрофт','a.brel0':[{'f2':14},{'f2':15}],'b.year':'1954','b.id':'666','c.f3':'Волгоград','d.f1':'Трелони'}
+		];
+	}
+}
+function Init() {
+	var M = X.runModel.multi(metaModel['T1']);
+	ko.applyBindings(M);
+	X.runModel.sendQuery(M);
+}
+</script>
+</body>
+</html>

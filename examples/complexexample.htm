@@ -1,0 +1,61 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<script type='text/javascript' src='knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='x.js'></script>
+<script type='text/javascript' src='x.ko.patch.js'></script>
+<script type='text/javascript' src='x.environment.js'></script>
+<script type='text/javascript' src='x.db.js'></script>
+<script type='text/javascript' src='x.model.build.js'></script>
+<script type='text/javascript' src='x.model.run.js'></script>
+<script type='text/javascript' src='x.ko.ctrl.js'></script>
+<script type='text/javascript' src='complex.js'></script>
+
+<link rel=stylesheet type="text/css" href="knockout/sko.css">
+<style>
+.ktable {
+	border:1px solid gray;
+	border-radius:0.2em;
+}
+#add_city_record {
+	padding:2em;
+}
+</style>
+</head>
+<body onload="Init();">
+<div id="show_city_table">
+	<table class="ktable">
+		<thead>
+			<th data-bind="text:Cities.$.city_name.caption">
+			<th data-bind="text:Cities.$.capital.caption">
+			<th data-bind="text:Cities.$.population.caption">
+		</thead>
+		<tbody data-bind="foreach:Cities">
+			<tr>
+				<td data-bind="ctrl:city_name">
+				<td data-bind="ctrl:capital">
+				<td data-bind="ctrl:population">
+		</tbody>
+	</table>
+</div>
+<div id="add_city_record">
+	<input data-bind="click:city_name">
+	<input data-bind="click:capital">
+	<input data-bind="click:population">
+	<button data-bind="click:addRecord">Добавить</button>
+</div>
+<pre id="json" style="background-color:lightgreen"></pre>
+<pre id="jsonpaste"></pre>
+<script>
+	
+function SQLTODATA(sql) {
+}
+function Init() {
+	var M = X.runModel.multi(metaModel['Cities']);
+	ko.applyBindings(M, document.getElementById('show_city_table'));
+	X.runModel.sendQuery(M);
+}
+</script>
+</body>
+</html>
