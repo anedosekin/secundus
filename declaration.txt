@@ -1,0 +1,10 @@
+Project(folder tree)
+-ext
+	=nginx
+	=php
+	=...
+-secundus (under source control)
+	=html
+	=conf
+	=...
+	start.bat (will start nginx, php with appropriate configuration files)

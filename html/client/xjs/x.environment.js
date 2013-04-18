@@ -130,7 +130,7 @@
 		return c;
 	},
 	onSendError: X.log,
-	url: "/save",
+	url: "/save/dbwork.php",
 	send: function(data, onresponce, onerror) {
 		
 		var p = X.XHR("POST", this.url, data)
