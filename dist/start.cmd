@@ -1,14 +1,14 @@
 rem set your computer name
-if %COMPUTERNAME%==NAY2 goto NAY
+if %COMPUTERNAME%==NAY goto NAY
 goto END
 :NAY
 set EXT_ROOT=..\ext\
-set HTML_ROOT=%~dp0html
-set NGINX_CONF=-c %~dp0conf\nginx\nay\nginx.conf
+set WWW_ROOT=%~dp0www
+set NGINX_CONF=-c %~dp0cfg\nginx\nay\nginx.conf
 :END
 rem defaults
 if -%EXT_ROOT%==- set EXT_ROOT=..\ext\
-if -%HTML_ROOT%==- set HTML_ROOT=%~dp0html
+if -%WWW_ROOT%==- set WWW_ROOT=%~dp0www
 
 cd %EXT_ROOT%nginx
 rem nginx -s stop
@@ -20,6 +20,6 @@ set PHP_FCGI_MAX_REQUESTS=0
 taskkill /f /IM php-cgi.exe
 rem set DOCROOT=%~dp0
 rem doc_root = D:\ias-portal\html
-start /B php-cgi -b 127.0.0.1:9000 -c php.ini -d doc_root=%HTML_ROOT%
+start /B php-cgi -b 127.0.0.1:9000 -c php.ini -d doc_root=%WWW_ROOT%
 
 cd ..
