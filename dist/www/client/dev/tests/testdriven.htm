@@ -1,15 +1,14 @@
 ﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-<script type='text/javascript' src='../knockout/knockout-2.2.1.debug.js'></script>
-<script type='text/javascript' src='../knockout/knockout.validation.js'></script>
-<script type='text/javascript' src='../xjs/x.js'></script>
-<script type='text/javascript' src='../xjs/x.ko.patch.js'></script>
-<script type='text/javascript' src='../xjs/x.environment.js'></script>
-<script type='text/javascript' src='../xjs/x.db.js'></script>
-<script type='text/javascript' src='../xjs/x.model.build.js'></script>
-<script type='text/javascript' src='../xjs/x.model.run.js'></script>
-<link rel=stylesheet type="text/css" href="../dev/sko.css">
+<script type='text/javascript' src='../../ext/knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='../../ext/knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.ko.patch.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.environment.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.db.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.model.build.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.model.run.js'></script>
 <style>
 #workspace {
 	border-radius:1em;
@@ -64,6 +63,7 @@ var testArray = [
 	htmlanswer:'<div data-bind="foreach:T0"><p><span data-bind="text:f0">А</span><span data-bind="text:rel0().f1">Фёдоров</span></p><p><span data-bind="text:f0">В</span><span data-bind="text:rel0().f1">Иванов</span></p><p><span data-bind="text:f0">Б</span><span data-bind="text:rel0().f1">Галкин</span></p></div>'
 },
 {
+	//exec:true,
 	name:'Три таблицы связанные релейшенами в цепочку, одно поле из-под средней таблицы, второе поле из под бэкрела(с автозаполнением), третье поле из-под релейшена. Релейшен на третью таблицу задан с дополнительным условием',
 	model:{
 		T0:{
@@ -170,6 +170,7 @@ var testArray = [
 	],
 },
 {
+	//exec:true,
 	name:'Одна запись. Две таблицы, один релейшен между ними. Поле из одной таблицы и поле из под релейшена. Релейшен на двух полях.',
 	model:{
 		T10:{

@@ -83,7 +83,7 @@
 			for(var i=0;i<cond.length;++i) {
 				var expr = { there : eval("root."+cond[i].there), value: cond[i].value };
 				if(cond[i].here) expr.here = eval("context."+cond[i].here)
-				if(context.alias === "") expr.value = ko.computed(function() {return expr.here()});//дополнительный запрос
+				//if(context.alias === "") expr.value = ko.computed(function() {return expr.here()});//дополнительный запрос
 				real_expr.push(expr);
 			}
 			//TODO: find appropriate table in context stack
@@ -182,7 +182,13 @@
 			
 			for(var i in table_node) {
 				var elem = table_node[i];
-				if(elem && env.used(elem) && !elem.defer) used.push({node: table_node, elem: elem});
+				if(elem && env.isMulti(elem)) {
+					if(elem.auto && env.used(elem)) 
+						used.push({node: table_node, elem: elem, subselect:elem.makeQuery()});
+				}
+				else
+					if(elem && env.used(elem))
+						used.push({node: table_node, elem: elem});
 				var rel = elem;
 				if(rel && rel.joins) { //it's rel
 					for(var j in rel)
@@ -252,6 +258,24 @@
 				*/rez.push(expr);
 			}
 			return rez;
+		},
+		sqlToLetter: function(sql_object) {
+			/*
+			select=
+			{
+				type:'select|update|insert|delete',
+				fields:[{'alias|field_name':'expression|select'},...],
+				from:'string',
+				link:['string',...]
+			}
+			*/
+			var select = { type:'select', fields:[] };
+			for(var i = 0; i < sql_object.used.length; ++i) {
+				var alias = sql_object.used[i].node.alias+"_"+sql_object.used[i].elem.$.name;
+				var expression = sql_object.used[i].node.alias+"."+sql_object.used[i].elem.$.name + ' AS '+ alias;
+				select.fields.push({ alias : expression });
+			}
+				
 		},
 		sqlToJSON: function(sql_object) {
 			var self = this;

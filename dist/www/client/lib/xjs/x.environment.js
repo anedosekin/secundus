@@ -86,10 +86,9 @@
 		c.external = ko.computed(function() {
 			if(!def.condition) return;
 			var table_node = c.current_node();
-			var rez = [];
 			for(var i=0;i<def.condition.length;++i) {
 				var cond = def.condition[i];
-				var expr = {there: (table_node || {})[cond.there], value: cond.value, here: cond.here};
+				var expr = {there: (table_node || {})[cond.there], value: cond.value, here: c.parent[cond.here]};
 				if(c.defer && cond.here) { 
 					expr.value = c.parent[cond.here]();
 				}
@@ -130,7 +129,7 @@
 		return c;
 	},
 	onSendError: X.log,
-	url: "/save/dbwork.php",
+	url: "/server/lib/dbwork.php",
 	send: function(data, onresponce, onerror) {
 		
 		var p = X.XHR("POST", this.url, data)
