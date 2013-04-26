@@ -184,7 +184,7 @@
 				var elem = table_node[i];
 				if(elem && env.isMulti(elem)) {
 					if(elem.auto && env.used(elem)) 
-						used.push({node: table_node, elem: elem, subselect:elem.makeQuery()});
+						used.push({node: table_node, elem: elem, select:elem.makeQuery()});
 				}
 				else
 					if(elem && env.used(elem))
@@ -204,7 +204,7 @@
 				var rel = table_node[i];
 				if(rel) {
 					if(env.used(rel) && env.isMulti(rel)) {
-						rel.external();
+						rel.linked_where();
 					}
 					else if(rel.joins) {
 						for(var j in rel.joins) 
@@ -245,7 +245,7 @@
 		},
 		nodeToJSON:function(node) {
 			if(!node) return 'error';
-			return node.parent ? (node.parent.alias+'.'+node.$.name) : node;
+			return node.parent ? (node.parent.$.name+'.'+node.parent.alias+'.'+node.$.name) : node;
 		},
 		condToJSON:function(cond) {
 			if(!cond) return cond;
@@ -259,25 +259,54 @@
 			}
 			return rez;
 		},
-		sqlToLetter: function(sql_object) {
+		makeStatement: function(object, linked_where) {
 			/*
-			select=
+			statement=
 			{
 				type:'select|update|insert|delete',
-				fields:[{'alias|field_name':'expression|select'},...],
+				fields:['field_name', select,...],
 				from:'string',
+				where:['string',...],
 				link:['string',...]
 			}
 			*/
-			var select = { type:'select', fields:[] };
-			for(var i = 0; i < sql_object.used.length; ++i) {
-				var alias = sql_object.used[i].node.alias+"_"+sql_object.used[i].elem.$.name;
-				var expression = sql_object.used[i].node.alias+"."+sql_object.used[i].elem.$.name + ' AS '+ alias;
-				select.fields.push({ alias : expression });
+			var sql = { type:'SELECT', fields:[], where:[], link:[] };
+			linked_where && 
+				sql.where.push(linked_where);
+			for(var i = 0; i < object.used.length; ++i) {
+				var field = object.used[i];
+				if(field.select) {
+					var where = [];
+					var cond = field.elem.linked_where();
+					for(var j=0;j<cond.length;++j) {
+						where.length && 
+							where.push(' AND ');
+						where.push(this.nodeToJSON(cond[j].there),'=');
+						where.push("'", cond[j].value || '?', "'");
+						
+						cond[j].value || 
+							sql.link.push(this.nodeToJSON(cond[j].here));
+					}
+					sql.fields.push(this.makeStatement(field.select, where.join('')));
+				} else {
+					sql.fields.push(field.node.alias+"."+field.elem.$.name);
+				}
 			}
+			
+			return sql;
+		},
+		x:function(from) {
+			var f = ['('];
+			if(from.length>0) {
+				f.push(from[0]);
+			}
+			for(var i=0;i<from.length;++i) {
 				
+			}
+			f.push(')');
 		},
 		sqlToJSON: function(sql_object) {
+			console.log(this.makeStatement(sql_object));
 			var self = this;
 			var select = [];
 			for(var i = 0; i < sql_object.used.length; ++i)
@@ -288,7 +317,7 @@
 					return { table: joins.$.name, 
 							alias: joins.alias, 
 							on: self.condToJSON(joins.condition),
-							external: self.condToJSON(joins.external)
+							linked_where: self.condToJSON(joins.linked_where)
 						}
 				//multijoin
 				var res = []

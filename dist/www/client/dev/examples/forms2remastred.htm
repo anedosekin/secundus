@@ -1,15 +1,14 @@
 ﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-<script type='text/javascript' src='../knockout/knockout-2.2.1.debug.js'></script>
-<script type='text/javascript' src='../knockout/knockout.validation.js'></script>
-<script type='text/javascript' src='../xjs/x.js'></script>
-<script type='text/javascript' src='../xjs/x.ko.patch.js'></script>
-<script type='text/javascript' src='../xjs/x.environment.js'></script>
-<script type='text/javascript' src='../xjs/x.db.js'></script>
-<script type='text/javascript' src='../xjs/x.model.build.js'></script>
-<script type='text/javascript' src='../xjs/x.model.run.js'></script>
-<link rel=stylesheet type="text/css" href="../dev/sko.css">
+<script type='text/javascript' src='../../ext/knockout/knockout-2.2.1.debug.js'></script>
+<script type='text/javascript' src='../../ext/knockout/knockout.validation.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.ko.patch.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.environment.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.db.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.model.build.js'></script>
+<script type='text/javascript' src='../../lib/xjs/x.model.run.js'></script>
 <style>
 </style>
 </head>
@@ -144,6 +143,19 @@ function SQLTODATA(sql) {
 	}
 }
 function Init() {
+	X.DBdefaultEnv.send = function(data, onresponce, onerror) {
+		/*
+		var p = X.XHR("POST", this.url, data)
+				.then(onresponce, onerror)
+				.done();
+		*/
+		var seen = [];
+		document.getElementById('json').innerHTML = JSON.stringify(data,
+			function(key, val) {return val});
+		document.getElementById('jsonpaste').innerHTML = JSON.stringify(data,
+			function(key, val) {return val}, 2);
+		onresponce(SQLTODATA(data));
+	}
 	var M = X.runModel.multi(metaModel['T1']);
 	ko.applyBindings(M);
 	X.runModel.sendQuery(M);

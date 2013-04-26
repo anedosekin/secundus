@@ -83,8 +83,9 @@
 		c.defer = def.array && def.array.indexOf('defer')==0;
 		c.ready = ko.observable(false);
 		c.current_node = ko.observable();
-		c.external = ko.computed(function() {
+		c.linked_where = ko.computed(function() {
 			if(!def.condition) return;
+			var rez = [];
 			var table_node = c.current_node();
 			for(var i=0;i<def.condition.length;++i) {
 				var cond = def.condition[i];
@@ -99,7 +100,7 @@
 		c.appendElement = function() {
 			c.current_node(new X.modelBuilder.tableNode(def.target || def, c));
 			var table_node = c.current_node();
-			table_node.external = c.external();
+			table_node.linked_where = c.linked_where();
 			c.push(table_node);
 			return table_node;
 		}

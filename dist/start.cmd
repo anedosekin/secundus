@@ -9,8 +9,6 @@ goto END
 rem COPY --------->
 :NAY
 set DIST_ROOT=%~dp0
-set EXT_ROOT=%DIST_ROOT%..\ext\
-set WWW_ROOT=%DIST_ROOT%www
 set NGINX_CONF=%DIST_ROOT%cfg\nginx\nay\nginx.conf
 set PHP_CONF=%DIST_ROOT%cfg\php\nay\php.ini
 goto END

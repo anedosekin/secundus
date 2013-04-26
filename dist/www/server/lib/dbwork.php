@@ -1,5 +1,5 @@
 ﻿<?php
-	error_log("Oracle database not available!");
+	//error_log("Oracle database not available!");
 	ini_set('display_errors', 'On');
 	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// dbtype: mysql, postgres, mssql, oci, sqlite
