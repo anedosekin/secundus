@@ -118,10 +118,8 @@
 				}
 			}
 		},
-		//collectJoins return table_node, if it doesnt have joins or array of joined tables
-		// or joins with tablenode as first element
-		//table_node or first element of array contains join condition for outer node
-		collectJoins: function(table_node) {
+		/*
+		collectJoins2: function(table_node) {
 			// T1->T2->T3
 			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
 			// it's returned as [T1, [T2, T3]]
@@ -142,7 +140,7 @@
 			}
 			ret.unshift(table_node); // if we have joins, add table to first element in join sequence
 			return ret; 
-		}, 
+		},*/
 		generateKeyObject: function(table_node) {
 			if(table_node.key) return table_node.key;
 			var kv = {}
@@ -243,21 +241,67 @@
 				selects: selects //subselects
 			}
 		},
-		nodeToJSON:function(node) {
+		nodeToString:function(node) {
 			if(!node) return 'error';
-			return node.parent ? (node.parent.$.name+'.'+node.parent.alias+'.'+node.$.name) : node;
-		},
+			return node.parent ? (node.parent.alias+'.'+node.$.name) : node;
+		},/*
 		condToJSON:function(cond) {
 			if(!cond) return cond;
 			var rez = [];
 			for(var i=0;i<cond.length;++i) {
 				var expr = {}
-				expr[this.nodeToJSON(cond[i].there)] = cond[i].value || this.nodeToJSON(cond[i].here);/*{there: this.nodeToJSON(cond[i].there)};
-				if(cond[i].value) expr.value = cond[i].value;
-				if(cond[i].here) expr.here = this.nodeToJSON(cond[i].here);
-				*/rez.push(expr);
+				expr[this.nodeToString(cond[i].there)] = cond[i].value || this.nodeToString(cond[i].here);//{there: this.nodeToString(cond[i].there)};
+				//if(cond[i].value) expr.value = cond[i].value;
+				//if(cond[i].here) expr.here = this.nodeToString(cond[i].here);
+				rez.push(expr);
 			}
 			return rez;
+		},*/
+		//collectJoins return table_node, if it doesnt have joins or array of joined tables
+		// or joins with tablenode as first element
+		//table_node or first element of array contains join condition for outer node
+		collectJoins: function(table_node) {
+			// T1->T2->T3
+			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
+			// it's returned as [T1, [T2, T3]]
+			var ret = [];
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						ret.push(this.collectJoins(rel.joins[j]));
+						ret.push(') ON '+this.condStatement(rel.joins[j].condition))
+					}
+				}
+			}
+			function table_id(node) {
+				return node.$.name + ' ' + node.alias;
+			}
+			
+			if(ret.length == 0) {
+				//no subjoins -> return table as it is
+					return table_id(table_node);
+			}
+			ret.unshift('('+table_id(table_node)+' LEFT OUTER JOIN '); // if we have joins, add table to first element in join sequence
+			return ret.join('');
+		},
+		condStatement: function (conds, cut) {
+			var rez = [];
+			for(var i=0;i<conds.length;++i) {
+				var cond = conds[i];
+				var value = null;
+				if(cond.value) {
+					value = "'"+cond.value+"'";
+				} else if(cut) {
+					value = '?';
+					cut.push(this.nodeToString(cond.here));
+				}
+				else {
+					value = this.nodeToString(cond.here);
+				}
+				rez.push(this.nodeToString(cond.there) + '=' + value);
+			}
+			return rez.join(' AND ');
 		},
 		makeStatement: function(object, linked_where) {
 			/*
@@ -267,44 +311,29 @@
 				fields:['field_name', select,...],
 				from:'string',
 				where:['string',...],
-				link:['string',...]
+				link:['string',...],
+				order:'string',
+				group:'string'
 			}
 			*/
-			var sql = { type:'SELECT', fields:[], where:[], link:[] };
+			var sql = { type:'SELECT', fields:[], from:'' ,where:[], link:[] };
 			linked_where && 
 				sql.where.push(linked_where);
+			if(X.isArray(object.joins)) 
+				sql.from = object.joins.join('')
+			else
+				sql.from = object.joins;
 			for(var i = 0; i < object.used.length; ++i) {
 				var field = object.used[i];
 				if(field.select) {
-					var where = [];
 					var cond = field.elem.linked_where();
-					for(var j=0;j<cond.length;++j) {
-						where.length && 
-							where.push(' AND ');
-						where.push(this.nodeToJSON(cond[j].there),'=');
-						where.push("'", cond[j].value || '?', "'");
-						
-						cond[j].value || 
-							sql.link.push(this.nodeToJSON(cond[j].here));
-					}
-					sql.fields.push(this.makeStatement(field.select, where.join('')));
+					sql.fields.push(this.makeStatement(field.select, this.condStatement(cond, sql.link)));
 				} else {
 					sql.fields.push(field.node.alias+"."+field.elem.$.name);
 				}
 			}
-			
 			return sql;
-		},
-		x:function(from) {
-			var f = ['('];
-			if(from.length>0) {
-				f.push(from[0]);
-			}
-			for(var i=0;i<from.length;++i) {
-				
-			}
-			f.push(')');
-		},
+		},/*
 		sqlToJSON: function(sql_object) {
 			console.log(this.makeStatement(sql_object));
 			var self = this;
@@ -340,7 +369,7 @@
 			}
 			var selects = recs(sql_object.selects);
 			return { select: select, from: from, selects:selects };
-		}
+		}*/
 	}
 	return res;
 })(X.DBdefaultEnv);

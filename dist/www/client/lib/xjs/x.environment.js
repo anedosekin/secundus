@@ -113,7 +113,7 @@
 		c.sendQuery = function() {
 			c.ready(false);
 			if(c().length) c.removeAll();
-			var json = X.modelBuilder.sqlToJSON(c.makeQuery());
+			var json = X.modelBuilder.makeStatement(c.makeQuery());
 			env.send(json, function(data) { env.writeArray(c, data, true) });
 		}
 	},
@@ -124,7 +124,7 @@
 		c.sendQuery = function() {
 			c.ready(false);
 			var sql = X.modelBuilder.makeSQL(c);
-			var json = X.modelBuilder.sqlToJSON(sql);
+			var json = X.modelBuilder.makeStatement(sql);
 			env.send(json, function(data) { env.writeRecord(c, sql.used, data, true) });
 		}
 		return c;
