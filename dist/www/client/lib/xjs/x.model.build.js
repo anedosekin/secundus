@@ -118,29 +118,6 @@
 				}
 			}
 		},
-		/*
-		collectJoins2: function(table_node) {
-			// T1->T2->T3
-			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
-			// it's returned as [T1, [T2, T3]]
-			
-			var ret = [];
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel && rel.joins) { //it's rel
-					for(var j in rel.joins) { //it's rel params
-						ret.push(this.collectJoins(rel.joins[j]));
-					}
-				}
-			}
-			
-			if(ret == []) {
-				//no subjoins -> return table as it is
-				return table_node;
-			}
-			ret.unshift(table_node); // if we have joins, add table to first element in join sequence
-			return ret; 
-		},*/
 		generateKeyObject: function(table_node) {
 			if(table_node.key) return table_node.key;
 			var kv = {}
@@ -225,151 +202,24 @@
 				}
 			}
 		},
-		makeSQL: function(table_node, context_node) {
+		collectSQL: function(table_node, context_node) {
 			this.makeUpdatables(table_node);
 			this.makeRelsAndAliases(table_node, context_node);
 			this.linkUsedConditions(table_node);
 			
 			var used = [];
 			this.collectUsage(table_node, used);
-			var joins = this.collectJoins(table_node);
+			var links = [];
+			var joins = X.sql.collectJoins(table_node, links);
 			var selects = [];
 			this.collectSubselects(table_node, selects);
 			return {
-				joins: joins, //FROM
 				used: used, //SELECT
+				joins: joins, //FROM
+				links: links, //values for questions
 				selects: selects //subselects
 			}
-		},
-		nodeToString:function(node) {
-			if(!node) return 'error';
-			return node.parent ? (node.parent.alias+'.'+node.$.name) : node;
-		},/*
-		condToJSON:function(cond) {
-			if(!cond) return cond;
-			var rez = [];
-			for(var i=0;i<cond.length;++i) {
-				var expr = {}
-				expr[this.nodeToString(cond[i].there)] = cond[i].value || this.nodeToString(cond[i].here);//{there: this.nodeToString(cond[i].there)};
-				//if(cond[i].value) expr.value = cond[i].value;
-				//if(cond[i].here) expr.here = this.nodeToString(cond[i].here);
-				rez.push(expr);
-			}
-			return rez;
-		},*/
-		//collectJoins return table_node, if it doesnt have joins or array of joined tables
-		// or joins with tablenode as first element
-		//table_node or first element of array contains join condition for outer node
-		collectJoins: function(table_node) {
-			// T1->T2->T3
-			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
-			// it's returned as [T1, [T2, T3]]
-			var ret = [];
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel && rel.joins) { //it's rel
-					for(var j in rel.joins) { //it's rel params
-						ret.push(this.collectJoins(rel.joins[j]));
-						ret.push(') ON '+this.condStatement(rel.joins[j].condition))
-					}
-				}
-			}
-			function table_id(node) {
-				return node.$.name + ' ' + node.alias;
-			}
-			
-			if(ret.length == 0) {
-				//no subjoins -> return table as it is
-					return table_id(table_node);
-			}
-			ret.unshift('('+table_id(table_node)+' LEFT OUTER JOIN '); // if we have joins, add table to first element in join sequence
-			return ret.join('');
-		},
-		condStatement: function (conds, cut) {
-			var rez = [];
-			for(var i=0;i<conds.length;++i) {
-				var cond = conds[i];
-				var value = null;
-				if(cond.value) {
-					value = "'"+cond.value+"'";
-				} else if(cut) {
-					value = '?';
-					cut.push(this.nodeToString(cond.here));
-				}
-				else {
-					value = this.nodeToString(cond.here);
-				}
-				rez.push(this.nodeToString(cond.there) + '=' + value);
-			}
-			return rez.join(' AND ');
-		},
-		makeStatement: function(object, linked_where) {
-			/*
-			statement=
-			{
-				type:'select|update|insert|delete',
-				fields:['field_name', select,...],
-				from:'string',
-				where:['string',...],
-				link:['string',...],
-				order:'string',
-				group:'string'
-			}
-			*/
-			var sql = { type:'SELECT', fields:[], from:'' ,where:[], link:[] };
-			linked_where && 
-				sql.where.push(linked_where);
-			if(X.isArray(object.joins)) 
-				sql.from = object.joins.join('')
-			else
-				sql.from = object.joins;
-			for(var i = 0; i < object.used.length; ++i) {
-				var field = object.used[i];
-				if(field.select) {
-					var cond = field.elem.linked_where();
-					sql.fields.push(this.makeStatement(field.select, this.condStatement(cond, sql.link)));
-				} else {
-					sql.fields.push(field.node.alias+"."+field.elem.$.name);
-				}
-			}
-			return sql;
-		},/*
-		sqlToJSON: function(sql_object) {
-			console.log(this.makeStatement(sql_object));
-			var self = this;
-			var select = [];
-			for(var i = 0; i < sql_object.used.length; ++i)
-				select.push(sql_object.used[i].node.alias+"."+sql_object.used[i].elem.$.name)
-			
-			var recf = function(joins) {
-				if(!joins.length) // simple table
-					return { table: joins.$.name, 
-							alias: joins.alias, 
-							on: self.condToJSON(joins.condition),
-							linked_where: self.condToJSON(joins.linked_where)
-						}
-				//multijoin
-				var res = []
-				for(var i = 0; i < joins.length; ++i)
-					res.push(recf(joins[i]));
-				return res;
-			}
-			var from = recf(sql_object.joins);
-			
-			var recs = function(selects) {
-				if(X.isArray(selects)) {
-					var rez = [];
-					for(var i=0;i<selects.length;++i) {
-						rez.push(recs(selects[i]));
-					}
-					return rez;
-				} else {
-					return self.sqlToJSON(selects);
-				}
-			}
-			var selects = recs(sql_object.selects);
-			return { select: select, from: from, selects:selects };
-		}*/
+		}
 	}
 	return res;
 })(X.DBdefaultEnv);

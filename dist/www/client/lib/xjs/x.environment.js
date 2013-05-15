@@ -106,14 +106,14 @@
 		}
 		c.makeQuery = function() {
 			var init_node = c.appendElement();
-			var sql = X.modelBuilder.makeSQL(init_node, c.parent);
+			var sql = X.modelBuilder.collectSQL(init_node, c.parent);
 			c.remove(init_node);
 			return sql;
 		}
 		c.sendQuery = function() {
 			c.ready(false);
 			if(c().length) c.removeAll();
-			var json = X.modelBuilder.makeStatement(c.makeQuery());
+			var json = X.sql.makeSelect(c.makeQuery());
 			env.send(json, function(data) { env.writeArray(c, data, true) });
 		}
 	},
@@ -123,8 +123,8 @@
 		c.$ = def;
 		c.sendQuery = function() {
 			c.ready(false);
-			var sql = X.modelBuilder.makeSQL(c);
-			var json = X.modelBuilder.makeStatement(sql);
+			var sql = X.modelBuilder.collectSQL(c);
+			var json = X.sql.makeSelect(sql);
 			env.send(json, function(data) { env.writeRecord(c, sql.used, data, true) });
 		}
 		return c;

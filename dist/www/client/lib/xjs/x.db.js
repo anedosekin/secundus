@@ -27,10 +27,10 @@
 					to_send.values[hasChanges = j] = env.read(qe.objects[j]);
 				}
 				if(hasChanges)
-					to_send_queue.cmds.push(to_send);
+					to_send_queue.cmds.push(X.sql.makeUpserte(to_send));
 			} else { //delete
 				if(qe.keyObject.DBKeyValue) //!DBKeyValue - new
-					to_send_queue.cmds.push(to_send);
+					to_send_queue.cmds.push(X.sql.makeUpserte(to_send));
 			}
 		}
 		if(to_send_queue.cmds.length) {
