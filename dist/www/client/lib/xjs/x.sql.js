@@ -13,8 +13,9 @@ var rez = {
 			var rel = table_node[i];
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
+					ret.push(' LEFT OUTER JOIN ');
 					ret.push(this.collectJoins(rel.joins[j], cut_link));
-					ret.push(') ON '+this.joinCondition(rel.joins[j].condition, cut_link))
+					ret.push(' ON '+this.joinCondition(rel.joins[j].condition, cut_link));
 				}
 			}
 		}
@@ -24,10 +25,10 @@ var rez = {
 		
 		if(ret.length == 0) {
 			//no subjoins -> return table as it is
-				return table_id(table_node);
+			return table_id(table_node);
 		}
-		ret.unshift('('+table_id(table_node)+' LEFT OUTER JOIN '); // if we have joins, add table to first element in join sequence
-		return ret.join('');
+		ret.unshift(table_id(table_node)); // if we have joins, add table to first element in join sequence
+		return '('+ret.join('')+')';
 	},
 	/*
 		All quotes supplied in values
@@ -44,11 +45,11 @@ var rez = {
 		}
 		return rez.join(' AND ');
 	},
-	linkedCondition:function(conds, cut) {
+	linkedCondition:function(conds, link) {
 		var rez = [];
 		for(var i=0;i<conds.length;++i) {
 			var cond = conds[i];
-			cut.push(cond.value ? cond.value : this.nodeToString(cond.here));
+			link.push(cond.value ? cond.value : this.nodeToString(cond.here));
 			rez.push(this.nodeToString(cond.there) + '=?');
 		}
 		return rez.join(' AND ');
@@ -85,7 +86,7 @@ var rez = {
 			var field = object.used[i];
 			if(field.select) {
 				var cond = field.elem.linked_where();
-				sql.FIELDS.push(this.makeSelect(field.select, this.linkedCondition(cond, sql.LINK)));
+				sql.FIELDS.push(this.makeSelect(field.select, this.linkedCondition(cond, sql.link)));
 			} else {
 				sql.FIELDS.push(field.node.alias+"."+field.elem.$.name);
 			}
@@ -101,7 +102,11 @@ var rez = {
 		//where
 		linked_where && 
 			sql.WHERE.push(linked_where);
-		
+		/*for(var i in sql) {
+			if(X.isArray(sql[i]) && sql[i].length==0) sql[i] = undefined;
+			else
+			if(!sql[i]) sql[i] = undefined;
+		}*/
 		return sql;
 	},
 	makeUpserte: function(object) {

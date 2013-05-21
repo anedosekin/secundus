@@ -49,8 +49,8 @@
 <div id="show_city_table">
 <table>
 <thead></thead>
-<tbody data-bind="foreach:Cities">
-	<tr><td data-bind="text:city_name"><td data-bind="text:capital"><td data-bind="text:country().value">
+<tbody data-bind="foreach:streets">
+	<tr><td data-bind="text:street_name"><td data-bind="text:city_id().value"><td data-bind="text:city_id().country().value">
 </tbody>
 </table>
 </div>
@@ -62,7 +62,7 @@
 function SQLTODATA(sql) {
 }
 function Init() {
-	var M = X.runModel.multi(metaModel['Cities']);
+	var M = X.runModel.multi(metaModel['streets']);
 	ko.applyBindings(M, document.getElementById('show_city_table'));
 	X.runModel.sendQuery(M);
 }

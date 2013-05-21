@@ -428,8 +428,7 @@ function compose_select_or_insert($cmd, $dbh, $links = null) {
   			foreach ($fld as $al=>$val) $select[] = "$val AS $al";
   		}
   	}
-  }
-    
+  }    
 
   if(isset($cmd['DEFAULTS']))
     foreach(array_diff_key($cmd['DEFAULTS'], $cmd[JS_FIELDS]) as $fld=>$expr)
@@ -437,18 +436,20 @@ function compose_select_or_insert($cmd, $dbh, $links = null) {
 
   $select = implode(', ', $select);
   $from = $cmd[JS_TABLES];
-  $where = make_where($cmd, $dbh);
+  $where = make_where($cmd, $dbh); 
   if($links) {
     //hack! replace '?' everywhere in where, it's safe anyway and works if we dont use '?' in our string constants
     $rpl = explode('?', $where);
     $rpl = array_map(function($x,$y){ return "$x $y"; }, $rpl, $links);
     $where = implode(' ', $rpl);
   }
+  // если WHERE пустой, то не нужно его вставлять
+  if ($where!="") $where=" WHERE ".$where;
   if(isset($cmd['INTO']))
-    return "INSERT INTO {$cmd['INTO']} ( $flds ) SELECT $flds FROM (SELECT $select FROM $from WHERE $where)";
+    return "INSERT INTO {$cmd['INTO']} ( $flds ) SELECT $flds FROM (SELECT $select FROM $from $where)";
   $gb = isset($cmd[JS_GROUP])? " GROUP BY {$cmd[JS_GROUP]} " : '';
   $ob = isset($cmd[JS_ORDER])? " ORDER BY {$cmd[JS_ORDER]} " : '';
-  return "SELECT $select FROM $from WHERE $where $gb $ob";
+  return "SELECT $select FROM $from $where $gb $ob";
 }
 
 function make_string_command($cmd, $dbh){

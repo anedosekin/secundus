@@ -13,45 +13,45 @@ function patchModel(model) {
 		return model;
 	}
 var metaModel = patchModel({
-	Streets:{
+	streets:{
 		city_id:{caption:'Город',
-			target:'Cities',
+			target:'cities',
 			condition:[{there:'id',here:'city_id'}],
 			pk:true
 		},
 		street_name:{caption:'Название', pk:true},
 	},
-	Cities:{
+	cities:{
 		id:{caption:'id', pk:true},
 		city_name:{caption:'Название'},
 		capital:{caption:'Столичный город'},
 		streets:{caption:'Улицы',
-			target:'Streets',
+			target:'streets',
 			condition:[{here:'city_name',there:'city'}],
 			array:'auto'
 		},
 		country:{caption:'Страна',
-			target:'Countries', 
+			target:'countries', 
 			condition:[{there:'country_name',here:'country'}]
 		}
 	},
-	Countries:{
+	countries:{
 		country_name:{caption:'Название', pk:true},
 		capital_city:{caption:'Столица',
-			target:'Cities',
+			target:'cities',
 			condition:[{there:'capital',value:'true'}, {there:'country',here:'country_name'}]
 		},
 		cities:{caption:'Города',
-			target:'Cities',
+			target:'cities',
 			condition:[{there:'country', here:'country_name'}],
 			array:'auto'
 		}
 	},
-	Buildings:{
+	buildings:{
 		id:{caption:'id', pk:true},
 		street_name:{
 			caption:'Улица',
-			target:'Streets',
+			target:'streets',
 			condition:[{there:'street_name',here:'street_name'},{there:'city_id', here:'city_id'}]
 		},
 		city_id:{caption:'Город'},
