@@ -1,44 +1,65 @@
 # SciTE session file
 
-buffer.1.path=..\dist\start.cmd
+buffer.1.path=C:\artimarkt\secundus\dist\start.cmd
 buffer.1.position=301
 
-buffer.2.path=..\dist\cfg\nginx\nay\nginx.conf
-buffer.2.position=926
+buffer.2.path=C:\artimarkt\secundus\dist\www\client\dev\examples\index.htm
+buffer.2.position=1258
 
-buffer.3.path=..\dist\www\client\ext\knockout\knockout-2.2.1.debug.js
-buffer.3.position=1193
+buffer.3.path=C:\artimarkt\secundus\dist\www\client\dev\examples\complex.js
+buffer.3.position=1
+buffer.3.current=1
 
-buffer.4.path=..\dist\www\client\lib\xjs\x.environment.js
-buffer.4.position=4874
+buffer.4.path=C:\artimarkt\secundus\dist\www\client\ext\knockout\knockout-2.2.1.debug.js
+buffer.4.position=1193
 
-buffer.5.path=..\dist\www\client\lib\xjs\x.model.build.js
-buffer.5.position=7155
+buffer.5.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.environment.js
+buffer.5.position=4874
 
-buffer.6.path=..\dist\www\client\lib\xjs\x.sql.js
-buffer.6.position=1
-buffer.6.current=1
+buffer.6.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.model.build.js
+buffer.6.position=7155
 
-buffer.7.path=..\dist\www\client\lib\xjs\x.db.js
-buffer.7.position=1
+buffer.7.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.sql.js
+buffer.7.position=3327
 
-buffer.8.path=..\dist\www\client\lib\xjs\x.ko.patch.js
-buffer.8.position=1
+buffer.8.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.db.js
+buffer.8.position=334
 
-buffer.9.path=..\dist\www\client\lib\xjs\x.js
+buffer.9.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.ko.patch.js
 buffer.9.position=1
 
-buffer.10.path=..\dist\www\client\lib\xjs\x.ko.ctrl.js
-buffer.10.position=1
+buffer.10.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.js
+buffer.10.position=1564
 
-buffer.11.path=..\dist\www\client\lib\xjs\x.model.run.js
+buffer.11.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.ko.ctrl.js
 buffer.11.position=1
 
-buffer.12.path=..\dist\www\client\dev\examples\index.htm
-buffer.12.position=788
+buffer.12.path=C:\artimarkt\secundus\dist\www\client\lib\xjs\x.model.run.js
+buffer.12.position=1
 
-buffer.13.path=..\dist\www\client\dev\tests\testdriven.htm
-buffer.13.position=14956
+buffer.13.path=C:\artimarkt\secundus\dist\www\client\dev\tests\testdriven.htm
+buffer.13.position=433
 
-buffer.14.path=..\dist\www\client\dev\examples\forms2remastred.htm
-buffer.14.position=7783
+buffer.14.path=C:\artimarkt\secundus\dist\www\client\dev\examples\forms2remastred.htm
+buffer.14.position=2228
+
+buffer.15.path=C:\artimarkt\secundus\dist\www\client\dev\forms2\lib\scripts.js
+buffer.15.position=1242
+
+buffer.16.path=C:\artimarkt\secundus\dist\www\server\lib\dbwork.php
+buffer.16.position=1
+
+buffer.17.path=C:\artimarkt\secundus\dist\www\server\lib\cache.php
+buffer.17.position=1
+
+buffer.18.path=C:\artimarkt\secundus\dist\www\server\lib\cfg.php
+buffer.18.position=251
+
+buffer.19.path=C:\artimarkt\secundus\dist\www\server\lib\jsdb_ex.txt
+buffer.19.position=1
+
+buffer.20.path=C:\artimarkt\secundus\dist\www\server\lib\sendjs.html
+buffer.20.position=1
+
+buffer.21.path=C:\artimarkt\secundus\dist\www\server\lib\right.php
+buffer.21.position=1

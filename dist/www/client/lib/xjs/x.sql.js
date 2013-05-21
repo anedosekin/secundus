@@ -67,40 +67,40 @@ var rez = {
 		/*
 		statement=
 		{
-			type:'select|update|insert|delete',
-			fields:['field_name', select,...],
-			from:'string',
-			where:['string',...],
-			link:['string',...],
-			order:'string',
-			group:'string'
+			TYPE:'SELECT|UPDATE|INSERT|DELETE',
+			FIELDS:['field_name', select,...],
+			FROM:'string',
+			WHERE:['string',...],
+			LINK:['string',...],
+			ORDER:'string',
+			GROUP:'string'
 		}
 		*/
 		/*
 		Link патчит значениями и полями все свои '?', а также все вопросики в where ниже на один уровень запросах
 		*/
-		var sql = { type:'SELECT', fields:[], from:'' ,where:[], link: [] };
+		var sql = { TYPE:'SELECT', FIELDS:[], FROM:'' ,WHERE:[], LINK: [] };
 		//fields
 		for(var i = 0; i < object.used.length; ++i) {
 			var field = object.used[i];
 			if(field.select) {
 				var cond = field.elem.linked_where();
-				sql.fields.push(this.makeSelect(field.select, this.linkedCondition(cond, sql.link)));
+				sql.FIELDS.push(this.makeSelect(field.select, this.linkedCondition(cond, sql.LINK)));
 			} else {
-				sql.fields.push(field.node.alias+"."+field.elem.$.name);
+				sql.FIELDS.push(field.node.alias+"."+field.elem.$.name);
 			}
 		}
 		//from
 		if(X.isArray(object.joins)) 
-			sql.from = object.joins.join('')
+			sql.FROM = object.joins.join('')
 		else
-			sql.from = object.joins;
+			sql.FROM = object.joins;
 		
-		sql.link = sql.link.concat(object.links);
+		sql.LINK = sql.LINK.concat(object.links);
 		
 		//where
 		linked_where && 
-			sql.where.push(linked_where);
+			sql.WHERE.push(linked_where);
 		
 		return sql;
 	},
@@ -113,21 +113,21 @@ var rez = {
 					values:{name:value, name:value}
 				}
 		*/
-		var sql = { type:undefined, fields:undefined, from: object.table, where:undefined, link:[] };
-		if(object.key) {
-			sql.where = [this.keyCondition(object.key, sql.link)];
-			if(!object.values) 
-				sql.type = 'DELETE';
-		}
+		var sql = { oid: object.oid, TYPE:undefined, FIELDS:undefined, FROM: object.table, WHERE:undefined, LINK:[] };
 		if(object.values) {
-			sql.fields = [];
+			sql.FIELDS = [];
 			for(var i in object.values) {
 				var field = {};
 				field[i] = '?';
-				sql.fields.push(field);
-				sql.link.push(object.values[i]);
+				sql.FIELDS.push(field);
+				sql.LINK.push(object.values[i]);
 			}
-			sql.type = object.key ? 'UPDATE' : 'INSERT';
+			sql.TYPE = object.key ? 'UPDATE' : 'INSERT';
+		}
+		if(object.key) {
+			sql.WHERE = [this.keyCondition(object.key, sql.LINK)];
+			if(!object.values) 
+				sql.TYPE = 'DELETE';
 		}
 		return sql;
 	}

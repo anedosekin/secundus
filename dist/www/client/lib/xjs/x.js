@@ -6,6 +6,36 @@ X.isFunction = function(obj) { return typeof obj === 'function'; }
 X.isObject = function(obj) { return obj === Object(obj); }
 X.isArray = Array.isArray || function(obj) { return toString.call(obj) == '[object Array]'; }
 X.isEmpty = function(val) { return val === undefined || val === null || val === ""; }
+if (!Function.prototype.bind) {
+	Function.prototype.bind = function (oThis) {
+	if (!X.isFunction(this)) {
+		// closest thing possible to the ECMAScript 5 internal IsCallable function
+		throw new TypeError("Function.prototype.bind - what is trying to be bound is not callable");
+	}
+	var fToBind = this, 
+		fNOP = function () {},
+		nThis = this instanceof fNOP && oThis
+						 ? this
+						 : oThis;
+
+	if(arguments.length==1)
+	var fBound = function () {
+			return fToBind.apply(nThis, arguments);
+		};
+	else {
+	var aArgs = Array.prototype.slice.call(arguments, 1), 
+		fBound = function () {
+			return fToBind.apply(nThis,
+								aArgs.concat(Array.prototype.slice.call(arguments)));
+		};
+	}
+
+	fNOP.prototype = this.prototype;
+	fBound.prototype = new fNOP();
+
+	return fBound;
+	};
+}
 function G_regEvent(name, phase, f) {
 	var freg = function(event) {
 		var e = event || window.event;
@@ -135,8 +165,8 @@ X.new_defer = function() {
 			  done: function(f) { return this.then(f, null) }
 			}
 		}
-		process = function(reason, promice, val, again) { !again && check(this);
-			if(!then.calls && !then.chain && reason === 'reject')
+		process = function(reason, val, again) { !again && check(this);
+			if(!this.then.calls && !this.then.chain && reason === 'reject')
 				throw val;
 			//console.log('process '+reason)
 			var then = this.then;
@@ -170,7 +200,7 @@ X.new_defer = function() {
 			X.asyncCall( process.bind(this.promice, 'resolve', val ) );
 		},
 		reject: function(val) { check(this.promice);
-			X.asyncCall( process.bind(this.promice, 'resolve', val ) );
+			X.asyncCall( process.bind(this.promice, 'reject', val ) );
 		},
 		promice: new_promice()
 	}
@@ -200,4 +230,8 @@ X.XHR = function(method, url, content, headers) {
 	  }
 	}
 	return df.promice;
+}
+X.log = function() {
+	if(window.console && window.console.log)
+		window.console.log.apply(window, arguments);
 }

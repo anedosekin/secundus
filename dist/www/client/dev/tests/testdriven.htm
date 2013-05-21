@@ -111,13 +111,14 @@ var testArray = [
 	actions:[
 		{
 			imperativ:'Измените значение инпута - введите строку "zzz" - и уберите с него фокус',
-			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T0","key":\\{"id":"111","f1":"А"\\},"oid":"-(\\d+)","values":\\{"f1":".*"\\}\\}\\]\\}$',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"oid":"-(\\d+)","type":"UPDATE","fields":\\[\\{"f1":"\\?"\\}\\],"from":"T0","where":\\["id=\\? AND f1=\\?"\\],"link":\\[".*","111","А"\\]\\}\\]\\}$',
+			//sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T0","key":\\{"id":"111","f1":"А"\\},"oid":"-(\\d+)","values":\\{"f1":".*"\\}\\}\\]\\}$',
 			answer:'{"cmds":[{"table":"T0","key":{"id":"111","f1":"А"},"oid":"-%%1%","values":{"f1":"new_zzz"}}]}',
 			htmlstate:'<div data-bind="foreach:T0"><p><span data-bind="text:f1">new_zzz</span><input data-bind="value:f1"><button data-bind="click:destroyElement">Удалить</button></p></div>'
 		},
 		{
 			imperativ:'Нажмите кнопку "Удалить"',
-			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T0","key":\\{"id":"111","f1":"new_zzz"\\},"oid":"-(\\d+)"\\}\\]\\}$',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"oid":"-(\\d+)","type":"DELETE","from":"T0","where":\\["id=\\? AND f1=\\?"\\],"link":\\["111","new_zzz"\\]\\}\\]\\}$',
 			answer:'{"cmds":[{"table":"T0","key":{"id":"111","f1":"А"},"oid":"-%%1%"}]}',
 			htmlstate:'<div data-bind="foreach:T0"></div>'
 		}
@@ -151,19 +152,19 @@ var testArray = [
 	type:'multi',
 	startTable:'T2',
 	html:'<div data-bind="foreach:T2"><p><span data-bind="text:f2"></span><button data-bind="click:brel1.sendQuery">Послать запрос</button><div data-bind="foreach:brel1"><span data-bind="text:f2"></span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2"></span></div></p></div>',
-	sql:'{"select":["a.id","a.f2","a.brel2"],"from":[{"table":"T2","alias":"a","on":null}],"selects":[{"select":["a.f2"],"from":[{"table":"T1","alias":"a","on":null,"external":[{"a.rel1":"id"}]}],"selects":[]}]}',
+	sql:'{"type":"SELECT","fields":["a.id","a.f2",{"type":"SELECT","fields":["a.f2"],"from":"T1 a","where":["a.rel1=?"],"link":[]}],"from":"T2 a","where":[],"link":["a.id"]}',
 	sqlanswer:[{'a.id':'111','a.f2':'Item','a.brel2':[{'a.f2':'Subitem'}]}],
 	htmlanswer:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>',
 	actions:[
 		{
 			imperativ:'Нажмите "Послать запрос"',
-			sqlmatch:'^\\{"select":\\["a.id","a.f2"\\],"from":\\[\\{"table":"T1","alias":"a","on":null,"external":\\[\\{"a.rel1":"111"\\}\\]\\}\\],"selects":\\[\\]\\}$',
+			sqlmatch:'^\\{"type":"SELECT","fields":\\["a.id","a.f2"\\],"from":"T1 a","where":\\[\\],"link":\\[\\]\\}$',
 			answer:[{'a.id':'aaa','a.f2':'Subitem-hidden'}],
 			htmlstate:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"><span data-bind="text:f2">Subitem-hidden</span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>'
 		},
 		{
 			imperativ:'Измените первый инпут',
-			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T1","key":\\{"id":"aaa","f2":"Subitem-hidden"\\},"oid":"-(\\d+)","values":\\{"f2":"(.*)"\\}\\}\\]\\}$',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"oid":"-(\\d+)","type":"UPDATE","fields":\\[\\{"f2":"\\?"\\}\\],"from":"T1","where":\\["id=\\? AND f2=\\?"\\],"link":\\["(.*)","aaa","Subitem-hidden"\\]\\}\\]\\}$',
 			answer:'{"cmds":[{"table":"T1","key":{"id":"aaa","f2":"Subitem-hidden"},"oid":"-%%1%","values":{"f2":"Data in base"}}]}',
 			htmlstate:'<div data-bind="foreach:T2"><p><span data-bind="text:f2">Item</span><button data-bind="click:brel1.sendQuery">Послать запрос</button></p><div data-bind="foreach:brel1"><span data-bind="text:f2">Data in base</span><input data-bind="value:f2"></div><div data-bind="foreach:brel2"><span data-bind="text:f2">Subitem</span></div><p></p></div>'
 		}
@@ -188,19 +189,20 @@ var testArray = [
 	type:'single',
 	startTable:'T10',
 	html:'<div><p><span data-bind="text:f3"></span><span data-bind="text:rel0().f1"></span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>',
-	sql:'{"select":["a.id","a.f3","b.id","b.f1","b.f2"],"from":[{"table":"T10","alias":"a","on":null},[{"table":"T11","alias":"b","on":[{"b.id":"a.rel0"},{"b.f2":"a.surname"}]}]],"selects":[]}',
+	sql:'{"type":"SELECT","fields":["a.id","a.f3","b.id","b.f1","b.f2"],"from":"(T10 a LEFT OUTER JOIN T11 b) ON b.id=a.rel0 AND b.f2=a.surname","where":[],"link":[]}',
 	sqlanswer:{'a.id':'aaa','a.f3':'А','b.id':'111','b.f1':'Фёдоров','b.f2':'Алексей'},
 	htmlanswer:'<div><p><span data-bind="text:f3">А</span><span data-bind="text:rel0().f1">Фёдоров</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>',
 	actions:[
 		{
 			imperativ:'Измените оба инпута',
-			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T10","key":\\{"id":"aaa"\\},"oid":"-(\\d+)","values":\\{"f3":".*"\\}\\}\\]\\}$',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"oid":"-(\\d+)","type":"UPDATE","fields":\\[\\{"f3":"\\?"\\}\\],"from":"T10","where":\\["id=\\?"\\],"link":\\[".*","aaa"\\]\\}\\]\\}$',
+			//sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T10","key":\\{"id":"aaa"\\},"oid":"-(\\d+)","values":\\{"f3":".*"\\}\\}\\]\\}$',
 			answer:'{"cmds":[{"table":"T10","key":{"id":"aaa"},"oid":"-%%1%","values":{"f3":"Data in base"}}]}',
 			htmlstate:'<div><p><span data-bind="text:f3">Data in base</span><span data-bind="text:rel0().f1">Data in base</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>'
 		},
 		{
 			imperativ:'',
-			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"table":"T11","key":\\{"id":"111","f2":"Алексей"\\},"oid":"-(\\d+)","values":\\{"f1":".*"\\}\\}\\]\\}$',
+			sqlmatch:'^\\{"seed":".{14}","cmds":\\[\\{"oid":"-(\\d+)","type":"UPDATE","fields":\\[\\{"f1":"\\?"\\}\\],"from":"T11","where":\\["id=\\? AND f2=\\?"\\],"link":\\["(.*)","111","Алексей"\\]\\}\\]\\}$',
 			answer:'{"cmds":[{"table":"T11","key":{"id":"111","f2":"Алексей"},"oid":"-%%1%","values":{"f1":"Data in base"}}]}',
 			htmlstate:'<div><p><span data-bind="text:f3">Data in base</span><span data-bind="text:rel0().f1">Data in base</span><input data-bind="value:f3"><input data-bind="value:rel0().f1"></p></div>'
 		}

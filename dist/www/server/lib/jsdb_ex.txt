@@ -1,0 +1,46 @@
+Примеры синтаксиса json для сервера.
+Пока только простые варианты.
+=================================================================
+INSERT
+
+INSERT INTO tblb (tblbtxt, tblbint) VALUES (?, ?)
+
+{
+  "commands":[
+  {"TYPE":"INSERT","FROM":"tblb b","FIELDS":{"tblbtxt":"?","tblbint":"?"},"LINK":["HHH","222"]}
+ ]
+}
+==================================================================
+DELETE
+
+DELETE FROM tblb b WHERE tblbint=?
+
+{
+ "commands":[
+ {"TYPE":"DELETE","FROM":"tblb b","WHERE":["tblbint=?"],"LINK":["222"]}
+]
+}
+==================================================================
+UPDATE
+
+UPDATE tblb b SET tblbtxt = ?, tblbint = ? WHERE tblbint=?
+
+{
+ "commands":[
+ {"TYPE":"UPDATE","FROM":"tblb b","FIELDS":{"tblbtxt":"?","tblbint":"?"},"WHERE":["tblbint=?"],"LINK":["RRR","111","222"]}
+]
+}
+==================================================================
+SELECT
+
+SELECT tblbtxt AS txtinf, tblbint AS intinf FROM tblb b WHERE tblbint=?
+
+{
+ "commands":[
+ {"TYPE":"SELECT","FROM":"tblb b","FIELDS":{"txtinf":"tblbtxt","intinf":"tblbint"},"WHERE":["tblbint=?"],"LINK":["555"]}
+]
+}
+Ответ:
+{"result":{"commands":[{"TYPE":"SELECT","FROM":"tblb b","FIELDS":{"txtinf":"tblbtxt","intinf":"tblbint"},"WHERE":["tblbint=?"],"LINK":["555"],"RESULTSET":[["eee",555]],"SUCCESS":true,"ROWS":1}]}}
+Сами данные находятся в массиве RESULTSET.
+

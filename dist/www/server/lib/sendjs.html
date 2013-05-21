@@ -1,0 +1,102 @@
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Send info</title>
+<body>
+<script>
+function getHTTPRequestObject() {
+  var xmlHttpRequest;
+  /*@cc_on
+  @if (@_jscript_version >= 5)
+  try {
+    xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+  } catch (exception1) {
+    try {
+      xmlHttpRequest = new ActiveXObject("Microsoft.XMLHTTP");
+    } catch (exception2) {
+      xmlHttpRequest = false;
+    }
+  }
+  @else
+    xmlhttpRequest = false;
+  @end @*/ 
+  if (!xmlHttpRequest && typeof XMLHttpRequest != 'undefined') {
+    try {
+      xmlHttpRequest = new XMLHttpRequest();
+    } catch (exception) {
+      xmlHttpRequest = false;
+	  alert ("httpRequest err!");
+    }
+  }
+  return xmlHttpRequest;
+}
+
+var couldProcess = false;
+function fff() {
+	if (!couldProcess && httpRequester) {
+		var data=document.getElementById("forSend").value;
+		//var ddd=eval('('+data+')');
+		httpRequester.open("POST", "dbwork.php",true);
+		httpRequester.onreadystatechange = processResponse;
+		httpRequester.setRequestHeader("Content-Type", "application/json");
+		couldProcess = true;
+		httpRequester.send(data);
+	}
+}
+function fff2() {
+		var data=document.getElementById("ttt").contentWindow.document.body.childNodes[0].innerHTML
+		document.getElementById("response").value=data;
+}
+function fff3() {
+		document.getElementById("sqltxt").value=document.getElementById("forSend").value;		
+}
+
+
+function processResponse() {
+  if ( httpRequester.readyState == 4 ) 
+  { 
+    //if ( httpRequester.responseText.indexOf('invalid') == -1 ) 
+	//{
+		var value = httpRequester.responseText; 
+		//document.getElementById('response').value = value;
+		try
+		{
+			var ttt=eval('('+value+")");
+			document.getElementById('response').value = JSON.stringify(ttt);
+		}
+		catch(e)
+		{	
+			alert ("Error in json!!!");
+			document.getElementById('response').value = value;
+		}
+		couldProcess = false;
+    //}
+	//else document.getElementById('response').value="Error!";
+    //accept="image/jpeg,iamge/png"
+  }  
+}
+
+var httpRequester = getHTTPRequestObject();
+</script>
+<textarea id="forSend" rows="10" cols="130">
+{
+	"commands":[
+	{"TYPE":"INSERT","FROM":"tblb b","FIELDS":{"tblbtxt":"?","tblbint":"?"},"LINK":["HHH","222"]}
+]
+}
+</textarea>
+<hr>
+<br>
+<input type=submit value="Send" onClick="fff();">
+<br>
+<hr>
+<iframe id="ttt" name="ttt" style="display: none" onload="fff2();"></iframe>
+<form action="dbwork.php" method="post" enctype="multipart/form-data" target="ttt" onsubmit="fff3();">
+	<input type="file"  name="uploadimg[]" multiple="multiple">
+	<input type="hidden" name="sqlboby" id="sqltxt">
+	<input type="submit" name="Upload" >	
+</form>
+<br><hr>
+Resonse<br>
+<textarea id="response" name="response" rows="20" cols="130"></textarea>
+</body>
+</html>

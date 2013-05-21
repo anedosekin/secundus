@@ -14,25 +14,25 @@ function patchModel(model) {
 	}
 var metaModel = patchModel({
 	Streets:{
-		id:{caption:'id', pk:true},
-		city:{caption:'Город',
+		city_id:{caption:'Город',
 			target:'Cities',
-			condition:[{there:'city_name',here:'city'}]
-		}
+			condition:[{there:'id',here:'city_id'}],
+			pk:true
+		},
+		street_name:{caption:'Название', pk:true},
 	},
 	Cities:{
 		id:{caption:'id', pk:true},
 		city_name:{caption:'Название'},
 		capital:{caption:'Столичный город'},
-		population:{caption:'Население'},
+		streets:{caption:'Улицы',
+			target:'Streets',
+			condition:[{here:'city_name',there:'city'}],
+			array:'auto'
+		},
 		country:{caption:'Страна',
 			target:'Countries', 
 			condition:[{there:'country_name',here:'country'}]
-		},
-		persons_in_city:{caption:'Жители',
-			target:'Persons',
-			condition:[{there:'birthcity', here:'id'}],
-			array:'auto'
 		}
 	},
 	Countries:{
@@ -47,6 +47,17 @@ var metaModel = patchModel({
 			array:'auto'
 		}
 	},
+	Buildings:{
+		id:{caption:'id', pk:true},
+		street_name:{
+			caption:'Улица',
+			target:'Streets',
+			condition:[{there:'street_name',here:'street_name'},{there:'city_id', here:'city_id'}]
+		},
+		city_id:{caption:'Город'},
+		building_number:{caption:'Номер дома'}
+	}
+	/*,
 	Persons:{
 		id:{caption:'id', pk:true},
 		first_name:{caption:'Имя'},
@@ -72,7 +83,7 @@ var metaModel = patchModel({
 			condition:[{there:'saler', here:'id'}],
 			array:'auto'
 		}
-	},/*
+	},
 	Identity:{
 		identification:{
 			dependent:'type',
@@ -87,7 +98,7 @@ var metaModel = patchModel({
 			}
 		},
 		type:{caption:'Тип лица'}
-	},*/
+	},
 	Identity:{
 		id:{caption:'id', pk:true},
 		organization:{caption:'Юридические лица',
@@ -130,5 +141,5 @@ var metaModel = patchModel({
 			target:'Sales',
 			condition:[{there:'id',here:'order'}]
 		}
-	}
+	}*/
 });

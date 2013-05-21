@@ -132,9 +132,17 @@
 	onSendError: X.log,
 	url: "/server/lib/dbwork.php",
 	send: function(data, onresponce, onerror) {
-		
-		var p = X.XHR("POST", this.url, data)
-				.then(onresponce, onerror)
+		onerror = function(txt) {
+			document.getElementById('error').innerHTML += txt;
+		}
+		var onresponce2 = function(data) {
+			onerror(data);
+			/*var x = data.indexOf('{"result":');
+			if(x != -1) onerror(data.substr(0,x));
+			var result = JSON.parse(data.substr(x));*/
+		}
+		var p = X.XHR("POST", this.url, X.server.message(data),{"Content-Type":"application/json"})
+				.then(onresponce2, onerror)
 				.done();
 		
 		/*
@@ -149,3 +157,23 @@
 	interval: 300,
 	timeout: 10*1000
 }
+X.server = (function(env) {
+	return {
+		response: function(data) {
+			var r = data.indexOf('{"result":');
+			if(r > 0) X.log(data.substr(0, r));
+			var result = JSON.parse(data.substr(r));
+			
+		},
+		message: function(data) {
+			var to_send = { commands:[] };
+			if(X.isArray(data)) {
+				for(var i = 0;i < data.length;++i) to_send.commands.push(data[i]);
+			}
+			else {
+				to_send.commands.push(data);
+			}
+			return JSON.stringify(to_send);
+		}
+	}
+})(X.DBdefaultEnv);
