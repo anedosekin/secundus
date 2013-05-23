@@ -3,44 +3,44 @@
 =================================================================
 INSERT
 
-INSERT INTO tblb (tblbtxt, tblbint) VALUES (?, ?)
+INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 
 {
   "commands":[
-  {"TYPE":"INSERT","FROM":"tblb b","FIELDS":{"tblbtxt":"?","tblbint":"?"},"LINK":["HHH","222"]}
+  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":{"txtdata":"?","intdata":"?"},"LINK":["HHH","222"]}
  ]
 }
 ==================================================================
 DELETE
 
-DELETE FROM tblb b WHERE tblbint=?
+DELETE FROM rmn_exp ex WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"DELETE","FROM":"tblb b","WHERE":["tblbint=?"],"LINK":["222"]}
+ {"TYPE":"DELETE","FROM":"rmn_exp ex","WHERE":["intdata=?"],"LINK":["222"]}
 ]
 }
 ==================================================================
 UPDATE
 
-UPDATE tblb b SET tblbtxt = ?, tblbint = ? WHERE tblbint=?
+UPDATE rmn_exp ex SET txtdata = ?, intdata = ? WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"UPDATE","FROM":"tblb b","FIELDS":{"tblbtxt":"?","tblbint":"?"},"WHERE":["tblbint=?"],"LINK":["RRR","111","222"]}
+ {"TYPE":"UPDATE","FROM":"rmn_exp ex","FIELDS":{"txtdata":"?","intdata":"?"},"WHERE":["intdata=?"],"LINK":["RRR","111","222"]}
 ]
 }
 ==================================================================
 SELECT
 
-SELECT tblbtxt AS txtinf, tblbint AS intinf FROM tblb b WHERE tblbint=?
+SELECT txtdata AS txtinf, intdata AS intinf FROM rmn_exp ex WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"SELECT","FROM":"tblb b","FIELDS":{"txtinf":"tblbtxt","intinf":"tblbint"},"WHERE":["tblbint=?"],"LINK":["555"]}
+ {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":{"txtinf":"txtdata","intinf":"intdata"},"WHERE":["intdata=?"],"LINK":["555"]}
 ]
 }
 Ответ:
-{"result":{"commands":[{"TYPE":"SELECT","FROM":"tblb b","FIELDS":{"txtinf":"tblbtxt","intinf":"tblbint"},"WHERE":["tblbint=?"],"LINK":["555"],"RESULTSET":[["eee",555]],"SUCCESS":true,"ROWS":1}]}}
+{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":{"txtinf":"txtdata","intinf":"intdata"},"WHERE":["intdata=?"],"LINK":["555"],"RESULTSET":[["eee",555]],"SUCCESS":true,"ROWS":1}]}}
 Сами данные находятся в массиве RESULTSET.
 
