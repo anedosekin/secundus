@@ -136,12 +136,13 @@
 			document.getElementById('error').innerHTML += txt;
 		}
 		var onresponce2 = function(data) {
-			onerror(data);
+			X.server.response(data);
+			//onerror(data);
 			/*var x = data.indexOf('{"result":');
 			if(x != -1) onerror(data.substr(0,x));
 			var result = JSON.parse(data.substr(x));*/
 		}
-		var p = X.XHR("POST", this.url, X.server.message(data),{"Content-Type":"application/json"})
+		var p = X.XHR("POST", this.url, X.server.query(data),{"Content-Type":"application/json"})
 				.then(onresponce2, onerror)
 				.done();
 		
@@ -159,13 +160,49 @@
 }
 X.server = (function(env) {
 	return {
-		response: function(data) {
+		response: function(data, eater) {
+			/*
+			{
+				result:
+				{
+					commands:
+					[
+						{
+							SUCCESS:true|false,
+							ROWS:number,
+							RESULTSET:[{"f1":"v1","f2":"v2"},{...},{...}],
+							"MSGTXT":'error text',
+							"SQLSTATE":'error number'
+						}
+					]
+				},
+				"errors":{
+					"system":
+					[
+						{"MSGTXT":"Error content type!","SQLSTATE":-1}
+					]
+				}
+			}
+			"SUCCESS":true,"ROWS":1
+			*/
 			var r = data.indexOf('{"result":');
 			if(r > 0) X.log(data.substr(0, r));
 			var result = JSON.parse(data.substr(r));
+			console.log(result);
+			for(var i=0;i<result.commands.length;++i) {
+				var command = result.commands[i];
+				if(command.SUCCESS) {
+					
+				}
+			}
+			
+			
+			/*
+			есть ошибочные команды, а есть правильные команды
+			*/
 			
 		},
-		message: function(data) {
+		query: function(data) {
 			var to_send = { commands:[] };
 			if(X.isArray(data)) {
 				for(var i = 0;i < data.length;++i) to_send.commands.push(data[i]);

@@ -3,7 +3,7 @@ REM set PHP_FROM_PATH to 1 for loading php from path environment variable
 REM set NGINX_FROM_PATH to 1 for loading nginx from path environment variable
 
 rem COPY --------->
-if %COMPUTERNAME%==NAY2 goto NAY
+if %COMPUTERNAME%==NAY goto NAY
 rem <--------------
 goto END
 rem COPY --------->
