@@ -9,6 +9,7 @@ $odbcdrv="SQL Server";
 $odbcsrv="SHUMSKY-XC-O3\SQLEXPRESS";
 //-----------------
 $dbhost="127.0.0.1";
+// add test comment
 //----mssql-odbc----
 /*
  $dbtype="mssql";
