@@ -39,6 +39,7 @@
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
 	writeSaveError: function(elm, err) { alert(err); /*or set attribute!*/ },
+	writeSelectError: function(elm, err) { alert(err); },
 	//check if this observable bound to something (need to be read)
 	used: function(elm) {
 		return elm.$ && elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
@@ -111,9 +112,7 @@
 		}
 		c.sendQuery = function() {
 			c.ready(false);
-			if(c().length) c.removeAll();
-			var json = X.sql.makeSelect(c.makeQuery());
-			env.send(json, function(data) { env.writeArray(c, data, true) });
+			X.Select.sendQuery(c);
 		}
 	},
 	makeRecord: function(def) {
@@ -129,13 +128,11 @@
 		return c;
 	},
 	onSendError: X.log,
-	onWarning: X.log,
 	url: "/server/lib/dbwork.php",
 	send: function(data, onresponce, onerror) {
-		var errorHandle = onerror || this.onSendError;
-		var responseHandle = X.server.response.bind(this, onresponce, errorHandle);
+		var responseHandle = X.server.response.bind(this, onresponce);
 		var p = X.XHR("POST", this.url, X.server.query(data),{"Content-Type":"application/json"})
-				.then(responseHandle, errorHandle)
+				.then(responseHandle, onerror)
 				.done();
 	},
 	interval: 300,
@@ -143,7 +140,7 @@
 }
 X.server = (function(env) {
 	return {
-		response: function(onresponse, onerror, data) {
+		response: function(onresponse, data) {
 			/*
 			{
 				result:
@@ -168,27 +165,15 @@ X.server = (function(env) {
 				}
 			}
 			*/
-			var errors = [];
 			var r = data.indexOf('{"result"');
-			if(r) env.onWarning((data.substr(0, r)));
+			if(r) console.log(data.substr(0, r));//warnings from php
 			
 			var answer = JSON.parse(data.substr(r));
 			
-			if(answer.errors) errors.push(answer);
+			if(answer.errors) 
+				throw answer.errors;
 			
-			for(var i=0;i<answer.result.commands.length;++i) {
-				var command = answer.result.commands[i];
-				if(command.SUCCESS) {
-					if(command.RESULTSET) {
-						onresponse(command.RESULTSET);
-					} else {
-						onresponse(command);
-					}
-				} else {
-					errors.push(command);
-				}
-			}
-			if(errors.length) onerror(errors);
+			onresponse(answer.result.commands);
 		},
 		query: function(data) {
 			var to_send = { seed: X.cid.seed(), commands:[] };

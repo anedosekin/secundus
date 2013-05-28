@@ -1,4 +1,4 @@
-﻿X.DB = (function(env) {
+﻿X.Upserte = (function(env) {
 	function newQueue() { return { cmds: [] } }
 	var DBQueue = newQueue();
 	var sentDBQueue = null;
@@ -66,7 +66,7 @@
 		env.onSendError("server responce:", err);
 		++errorCount;
 		//resend... 
-		//DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
+		DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
 		sentDBQueue = null;
 		processQueue();
 	}
@@ -146,7 +146,7 @@
 				this.DBKeyValue = k;
 				if(this.pended_changes)
 					for(var i in this.pended_changes)
-						X.DB.toServer(this.pended_changes[i]);
+						X.Upserte.toServer(this.pended_changes[i]);
 				this.pended_changes = null;
 				return true;
 			}, this);
@@ -154,7 +154,7 @@
 				if(this.pended_changes) { // save in pended changes, if key is not ready
 					this.pended_changes[elm.$.name] = elm; //unique!
 				} else {
-					X.DB.toServer(elm);
+					X.Upserte.toServer(elm);
 				}
 			}
 			return this;
@@ -165,5 +165,27 @@
 		//array: 1) combo items -> filled in filter -> so in select when data come 
 		// 2) subitems -> filled in select  when data come
 		// one object filled in select when data come
+	}
+})(X.DBdefaultEnv);
+X.Select = (function(env) {
+	function onresponce(elm, response) {
+		var com = response[0];
+		if(com.SUCCESS) {
+			if(elm().length) elm.removeAll();
+			env.writeArray(elm, com.RESULTSET, true);
+		} else {
+			env.writeSelectError( elm, com.SQLSTATE +':'+com.MSGTXT );
+		}
+	}
+	function onerror(elm, error) {
+		env.onSendError("server responce:", error);
+		sendQueryToServer(elm);//resend
+	}
+	function sendQueryToServer(elm) {
+		var query = X.sql.makeSelect( elm.makeQuery() );
+		env.send(query, onresponce.bind(this, elm), onerror.bind(this, elm));
+	}
+	return {
+		sendQuery: sendQueryToServer
 	}
 })(X.DBdefaultEnv);

@@ -137,10 +137,10 @@ INSERT INTO buildings(street_name, city_id, id, building_number) VALUES ('Дер
 
 ALTER TABLE cities ADD CONSTRAINT fkcountry FOREIGN KEY (country)
       REFERENCES countries (country_name) MATCH SIMPLE
-      ON UPDATE NO ACTION ON DELETE NO ACTION;
+      ON UPDATE CASCADE ON DELETE NO ACTION;
 ALTER TABLE buildings ADD CONSTRAINT fkstreets FOREIGN KEY (city_id, street_name)
       REFERENCES streets (city_id, street_name) MATCH SIMPLE
-      ON UPDATE NO ACTION ON DELETE NO ACTION;
+      ON UPDATE CASCADE ON DELETE NO ACTION;
 ALTER TABLE streets ADD CONSTRAINT fkcity FOREIGN KEY (city_id)
       REFERENCES cities (id) MATCH SIMPLE
-      ON UPDATE NO ACTION ON DELETE NO ACTION;
+      ON UPDATE CASCADE ON DELETE NO ACTION;

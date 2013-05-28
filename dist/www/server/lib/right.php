@@ -333,8 +333,11 @@ function compose_update($cmd, $dbh) {
   global $RE_ONE_TABLE;
   $one_table = preg_match($RE_ONE_TABLE,$cmd[JS_TABLES]);
   $set = array();
-  foreach($cmd[JS_FIELDS] as $fld=>$expr)
-    $set[] = "$fld = $expr";
+  foreach($cmd[JS_FIELDS] as $fldpair) {
+    foreach($fldpair as $fld => $expr)
+      $set[] = "$fld = $expr";
+  }
+   
   $set = implode(', ', $set);
   $from = $cmd[JS_TABLES];
   $where = make_where($cmd, $dbh);

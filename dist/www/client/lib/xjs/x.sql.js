@@ -118,7 +118,7 @@ var rez = {
 					values:{name:value, name:value}
 				}
 		*/
-		var sql = { oid: object.oid, TYPE:undefined, FIELDS:undefined, FROM: object.table, WHERE:undefined, LINK:[] };
+		var sql = { oid: object.oid, TYPE:undefined, FIELDS:undefined, FROM: object.table + ' a', WHERE:undefined, LINK:[] };
 		if(object.values) {
 			sql.FIELDS = [];
 			for(var i in object.values) {
@@ -134,6 +134,7 @@ var rez = {
 			if(!object.values) 
 				sql.TYPE = 'DELETE';
 		}
+		console.log(JSON.stringify(sql));
 		return sql;
 	}
 }

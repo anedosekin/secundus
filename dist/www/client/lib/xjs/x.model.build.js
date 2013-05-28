@@ -128,7 +128,7 @@
 				if(elem && elem.value && elem.value.$.pk)
 					kv[elem.value.$.name] = elem.value;
 			}
-			return table_node.key = X.DB.new_key(table_node.$, kv);
+			return table_node.key = X.Upserte.new_key(table_node.$, kv);
 			//TODO: subscibe to changes
 		},
 		makeUpdatables: function(table_node) {
