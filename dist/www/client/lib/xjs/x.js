@@ -143,7 +143,7 @@ X.asyncCall = (function() {
 X.new_defer = function() {
 		function check(promice) {
 			if(promice.then.done)
-				throw "resolving alredy resolved promice";
+				throw "resolving already resolved promice";
 		}
 		var process;
 		function new_promice() {
@@ -233,5 +233,5 @@ X.XHR = function(method, url, content, headers) {
 }
 X.log = function() {
 	if(window.console && window.console.log)
-		window.console.log.apply(window, arguments);
+		window.console.log.apply(window.console, arguments);
 }

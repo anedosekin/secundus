@@ -76,7 +76,6 @@
 	makeArray: function(container, name, def) {
 		var env = this;
 		var c = container[name] = ko.observableArray();
-		console.log(def.name+' is used:'+env.used(c));
 		c.$ = def;
 		c.parent = container;
 		c.auto = def.array && def.array.indexOf('auto')==0;
@@ -130,37 +129,21 @@
 		return c;
 	},
 	onSendError: X.log,
+	onWarning: X.log,
 	url: "/server/lib/dbwork.php",
 	send: function(data, onresponce, onerror) {
-		onerror = function(txt) {
-			document.getElementById('error').innerHTML += txt;
-		}
-		var onresponce2 = function(data) {
-			X.server.response(data);
-			//onerror(data);
-			/*var x = data.indexOf('{"result":');
-			if(x != -1) onerror(data.substr(0,x));
-			var result = JSON.parse(data.substr(x));*/
-		}
+		var errorHandle = onerror || this.onSendError;
+		var responseHandle = X.server.response.bind(this, onresponce, errorHandle);
 		var p = X.XHR("POST", this.url, X.server.query(data),{"Content-Type":"application/json"})
-				.then(onresponce2, onerror)
+				.then(responseHandle, errorHandle)
 				.done();
-		
-		/*
-		var seen = [];
-		document.getElementById('json').innerHTML = JSON.stringify(data,
-			function(key, val) {return val});
-		document.getElementById('jsonpaste').innerHTML = JSON.stringify(data,
-			function(key, val) {return val}, 2);
-		onresponce(SQLTODATA(data));
-		*/
 	},
 	interval: 300,
 	timeout: 10*1000
 }
 X.server = (function(env) {
 	return {
-		response: function(data, eater) {
+		response: function(onresponse, onerror, data) {
 			/*
 			{
 				result:
@@ -168,6 +151,7 @@ X.server = (function(env) {
 					commands:
 					[
 						{
+							Original command,
 							SUCCESS:true|false,
 							ROWS:number,
 							RESULTSET:[{"f1":"v1","f2":"v2"},{...},{...}],
@@ -183,27 +167,31 @@ X.server = (function(env) {
 					]
 				}
 			}
-			"SUCCESS":true,"ROWS":1
 			*/
-			var r = data.indexOf('{"result":');
-			if(r > 0) X.log(data.substr(0, r));
-			var result = JSON.parse(data.substr(r));
-			console.log(result);
-			for(var i=0;i<result.commands.length;++i) {
-				var command = result.commands[i];
+			var errors = [];
+			var r = data.indexOf('{"result"');
+			if(r) env.onWarning((data.substr(0, r)));
+			
+			var answer = JSON.parse(data.substr(r));
+			
+			if(answer.errors) errors.push(answer);
+			
+			for(var i=0;i<answer.result.commands.length;++i) {
+				var command = answer.result.commands[i];
 				if(command.SUCCESS) {
-					
+					if(command.RESULTSET) {
+						onresponse(command.RESULTSET);
+					} else {
+						onresponse(command);
+					}
+				} else {
+					errors.push(command);
 				}
 			}
-			
-			
-			/*
-			есть ошибочные команды, а есть правильные команды
-			*/
-			
+			if(errors.length) onerror(errors);
 		},
 		query: function(data) {
-			var to_send = { commands:[] };
+			var to_send = { seed: X.cid.seed(), commands:[] };
 			if(X.isArray(data)) {
 				for(var i = 0;i < data.length;++i) to_send.commands.push(data[i]);
 			}

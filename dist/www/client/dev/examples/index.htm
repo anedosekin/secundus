@@ -13,7 +13,6 @@
 <script type='text/javascript' src='../../lib/xjs/x.ko.ctrl.js'></script>
 <script type='text/javascript' src='complex.js'></script>
 
-<link rel=stylesheet type="text/css" href="../dev/sko.css">
 <style>
 .ktable {
 	border:1px solid gray;
@@ -51,6 +50,7 @@
 <thead></thead>
 <tbody data-bind="foreach:streets">
 	<tr><td data-bind="text:street_name"><td data-bind="text:city_id.value"><td data-bind="text:city_id().country.value">
+	<td><input data-bind="value:street_name">
 </tbody>
 </table>
 </div>

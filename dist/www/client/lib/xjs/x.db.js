@@ -10,11 +10,12 @@
 
 		if(DBQueue.cmds.length === 0) return;
 		
-		var to_send_queue = { seed: X.cid.seed(), cmds: [] }
+		var to_send_queue = [];
 		
 		for(i = 0; i < DBQueue.cmds.length; ++i) {
 			var qe = DBQueue.cmds[i];
-			var to_send = { table: qe.keyObject.$.name, 
+			var to_send = { 
+					table: qe.keyObject.$.name, 
 					key: qe.keyObject.DBKeyValue,
 					oid: X.OID(qe.keyObject) 
 					}
@@ -27,13 +28,13 @@
 					to_send.values[hasChanges = j] = env.read(qe.objects[j]);
 				}
 				if(hasChanges)
-					to_send_queue.cmds.push(X.sql.makeUpserte(to_send));
+					to_send_queue.push(X.sql.makeUpserte(to_send));
 			} else { //delete
 				if(qe.keyObject.DBKeyValue) //!DBKeyValue - new
-					to_send_queue.cmds.push(X.sql.makeUpserte(to_send));
+					to_send_queue.push(X.sql.makeUpserte(to_send));
 			}
 		}
-		if(to_send_queue.cmds.length) {
+		if(to_send_queue.length) {
 			//var j = JSON.stringify(to_send_queue);
 			sentDBQueue = DBQueue;
 			DBQueue = newQueue();
@@ -65,7 +66,7 @@
 		env.onSendError("server responce:", err);
 		++errorCount;
 		//resend... 
-		DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
+		//DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
 		sentDBQueue = null;
 		processQueue();
 	}
