@@ -1,10 +1,10 @@
 X.sql = (function() {
 var rez = {
-	nodeToString:function(node) {
+	node:function(node) {
 		if(!node) return 'error';
 		return node.parent ? (node.parent.alias+'.'+node.$.name) : node;
 	},
-	collectJoins: function(table_node, cut_link) {
+	collectJoins: function(table_node, link) {
 		// T1->T2->T3
 		// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
 		// it's returned as [T1, [T2, T3]]
@@ -13,9 +13,11 @@ var rez = {
 			var rel = table_node[i];
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
+					var on = rel.joins[j].condition;
+					link = link.concat(on.LINK);
 					ret.push(' LEFT OUTER JOIN ');
-					ret.push(this.collectJoins(rel.joins[j], cut_link));
-					ret.push(' ON '+this.joinCondition(rel.joins[j].condition, cut_link));
+					ret.push(this.collectJoins(rel.joins[j], link));
+					ret.push(' ON '+on.WHERE);
 				}
 			}
 		}
@@ -33,27 +35,6 @@ var rez = {
 	/*
 		All quotes supplied in values
 	*/
-	joinCondition: function(conds, cut) {
-		var rez = [];
-		for(var i=0;i<conds.length;++i) {
-			var cond = conds[i];
-			var value = cond.value ? '?' : this.nodeToString(cond.here)
-			if(value==='?') {
-				cut.push(cond.value);
-			}
-			rez.push(this.nodeToString(cond.there) + '=' + value);
-		}
-		return rez.join(' AND ');
-	},
-	linkedCondition:function(conds, link) {
-		var rez = [];
-		for(var i=0;i<conds.length;++i) {
-			var cond = conds[i];
-			link.push(cond.value ? cond.value : this.nodeToString(cond.here));
-			rez.push(this.nodeToString(cond.there) + '=?');
-		}
-		return rez.join(' AND ');
-	},
 	keyCondition: function(key, cut) {
 		var rez = [];
 		for(var i in key) {
@@ -64,7 +45,7 @@ var rez = {
 		}
 		return rez.join(' AND ');
 	},
-	makeSelect: function(object, linked_where) {
+	makeSelect: function(object, where) {
 		/*
 		statement=
 		{
@@ -85,8 +66,9 @@ var rez = {
 		for(var i = 0; i < object.used.length; ++i) {
 			var field = object.used[i];
 			if(field.select) {
-				var cond = field.elem.linked_where();
-				sql.FIELDS.push(this.makeSelect(field.select, this.linkedCondition(cond, sql.link)));
+				var subwhere = field.elem.where();
+				sql.LINK = sql.LINK.concat(subwhere.LINK);
+				sql.FIELDS.push(this.makeSelect(field.select, subwhere.WHERE));
 			} else {
 				sql.FIELDS.push(field.node.alias+"."+field.elem.$.name);
 			}
@@ -100,8 +82,8 @@ var rez = {
 		sql.LINK = sql.LINK.concat(object.links);
 		
 		//where
-		linked_where && 
-			sql.WHERE.push(linked_where);
+		where && 
+			sql.WHERE.push(where);
 		/*for(var i in sql) {
 			if(X.isArray(sql[i]) && sql[i].length==0) sql[i] = undefined;
 			else
@@ -136,6 +118,16 @@ var rez = {
 		}
 		console.log(JSON.stringify(sql));
 		return sql;
+	},
+	valuesFromUpdate: function(com) {
+		var vals = {};
+		for(var i=0;i<com.FIELDS.length;++i) {
+			var fld = com.FIELDS[i];
+			for(var name in fld) {
+				vals[name] = com.LINK[i];
+			}
+		}
+		return vals;
 	}
 }
 return rez;

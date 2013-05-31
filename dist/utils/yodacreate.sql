@@ -35,6 +35,7 @@ CREATE TABLE streets
 (
   street_name character varying NOT NULL,
   city_id numeric NOT NULL,
+  street_population numeric,
   CONSTRAINT pkstreets PRIMARY KEY (city_id, street_name)
 )
 WITH (

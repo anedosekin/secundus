@@ -3,38 +3,41 @@
 	//read from observable
 	read: function(elm) { return elm.value ? elm.value() : elm(); },
 	//write to observable or observableArray
-	write:function(elm, value, remote) {
-		if(remote) elm.DBValue = value;
+	write:function(elm, value) {
 		(elm.joins ? elm.value : elm)(value);
 	},
-	writeRecord: function(elm, usage, value, remote) {
+	writeFromDB:function(elm, value) {
+		elm.DBValue(value);
+		this.write(elm, value);
+	},
+	writeRecord: function(elm, usage, value) {
 		var i = 0;
 		for(var j in value) {
 			//TODO: server answer value length may be greater than usage. should check it and alert
 			var data = value[j];
 			var elem = usage[i].elem;
 			if(this.isMulti(elem)) {
-				this.writeArray(elem, data, remote);
+				this.writeArray(elem, data);
 			} else {
-				this.write(elem, data, remote);
+				this.writeFromDB(elem, data);
 			}
 			i++;
 		}
 		elm.ready(true);
 	},
-	writeArray: function(elm, value, remote) {
+	writeArray: function(elm, value) {
 		for(var i = 0;i < value.length;++i) {
 			var usage = [];
 			var node = elm.appendElement();
 			X.modelBuilder.makeUpdatables(node);
 			X.modelBuilder.linkUsedConditions(node);
 			X.modelBuilder.collectUsage(node, usage);
-			this.writeRecord(node, usage, value[i], remote);
+			this.writeRecord(node, usage, value[i]);
 		}
 		elm.ready(true);
 	},
 	isChanged:function(elm) {
-		return this.read(elm) !== elm.DBValue;
+		return this.read(elm) !== elm.DBValue();
 	},
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
@@ -51,6 +54,7 @@
 		var c = container[name] = ko.observable();
 		c.$ = fielddef;
 		c.parent = container;
+		c.DBValue = ko.observable();
 	},
 	isMulti:function(elm) {return elm.appendElement },
 	//convert element (made with makeElement) to writable one (which is able to send itself to server)
@@ -83,24 +87,25 @@
 		c.defer = def.array && def.array.indexOf('defer')==0;
 		c.ready = ko.observable(false);
 		c.current_node = ko.observable();
-		c.linked_where = ko.computed(function() {
+		c.where = ko.computed(function() {//subscribe to fields in condition
 			if(!def.condition) return;
-			var rez = [];
+			var w = {WHERE:[], LINK:[]}
 			var table_node = c.current_node();
 			for(var i=0;i<def.condition.length;++i) {
 				var cond = def.condition[i];
-				var expr = {there: (table_node || {})[cond.there], value: cond.value, here: c.parent[cond.here]};
-				if(c.defer && cond.here) { 
-					expr.value = c.parent[cond.here]();
-				}
-				rez.push(expr);
+				w.WHERE.push(X.sql.node(table_node[cond.there])+'=?');
+				if(c.defer)
+					w.LINK.push(c.parent[cond.here]())
+				else
+					w.LINK.push({field:X.sql.node(c.parent[cond.here])});
 			}
-			return rez;
+			w.WHERE = w.WHERE.join(' AND ');
+			return where;
 		}, c, {deferEvaluation: true});/*считается только для используемых массивов*/
 		c.appendElement = function() {
 			c.current_node(new X.modelBuilder.tableNode(def.target || def, c));
 			var table_node = c.current_node();
-			table_node.linked_where = c.linked_where();
+			table_node.where = c.where();
 			c.push(table_node);
 			return table_node;
 		}
@@ -114,6 +119,11 @@
 			c.ready(false);
 			X.Select.sendQuery(c);
 		}
+		c.addNewLine = function() {
+			var node = c.appendElement();
+			X.modelBuilder.makeUpdatables(node);
+			X.modelBuilder.linkUsedConditions(node);
+		}
 	},
 	makeRecord: function(def) {
 		var env = this;
@@ -123,7 +133,7 @@
 			c.ready(false);
 			var sql = X.modelBuilder.collectSQL(c);
 			var json = X.sql.makeSelect(sql);
-			env.send(json, function(data) { env.writeRecord(c, sql.used, data, true) });
+			env.send(json, function(data) { env.writeRecord(c, sql.used, data) });
 		}
 		return c;
 	},
@@ -165,15 +175,18 @@ X.server = (function(env) {
 				}
 			}
 			*/
-			var r = data.indexOf('{"result"');
-			if(r) console.log(data.substr(0, r));//warnings from php
-			
-			var answer = JSON.parse(data.substr(r));
-			
-			if(answer.errors) 
-				throw answer.errors;
-			
-			onresponse(answer.result.commands);
+			var re = /\{"result":.*$/g;
+			if(answer = data.match(re)) {
+				var warning;
+				if(warning = data.replace(re,"").replace(/\s+$/g,"")) 
+					console.log(warning);
+				var ansObj = JSON.parse(answer[0]);
+				if(ansObj.errors) 
+					throw ansObj.errors;
+				onresponse(ansObj.result.commands);
+			} else {
+				console.log(data);
+			}
 		},
 		query: function(data) {
 			var to_send = { seed: X.cid.seed(), commands:[] };

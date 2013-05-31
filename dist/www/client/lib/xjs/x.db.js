@@ -21,14 +21,11 @@
 					}
 			if(qe.objects) { //update/insert
 				to_send.values = {}
-				var hasChanges = false;
 				for(var j in qe.objects) {
 					// due to toJSON isCid translated to {cid:val} which is enough
-					//if(env.isChanged(qe.objects[j])) //changed
-					to_send.values[hasChanges = j] = env.read(qe.objects[j]);
+					to_send.values[j] = env.read(qe.objects[j]);
 				}
-				if(hasChanges)
-					to_send_queue.push(X.sql.makeUpserte(to_send));
+				to_send_queue.push(X.sql.makeUpserte(to_send));
 			} else { //delete
 				if(qe.keyObject.DBKeyValue) //!DBKeyValue - new
 					to_send_queue.push(X.sql.makeUpserte(to_send));
@@ -48,7 +45,7 @@
 			var last = DBQueue.cmds.slice(-1)[0];
 			var qe = last && n.keyObject === last.keyObject ? last : n;
 			
-			if(qe !== last && (elm.key._destroy || env.isChanged(elm)))
+			if(qe !== last)
 				DBQueue.cmds.push(n);
 			
 			if(elm.key._destroy)
@@ -70,31 +67,29 @@
 		sentDBQueue = null;
 		processQueue();
 	}
-	function onresponce(txt) {
+	function onresponce(cmds) {
 		errorCount = 0;
-		var js = JSON.parse(txt); //isCid NOT used
+		//isCid NOT used
 		//must match!
-		var a = js.cmds;
 		var objs = sentDBQueue.cmds;
-		for(var t = 0; t < a.length; ++t)
+		for(var t = 0; t < cmds.length; ++t)
 		{
-			var s = a[t]; //
+			var s = cmds[t]; //
 			var c = objs[t].keyObject; //must match previous!
 			if(s.oid !== X.OID(c)) {
 				//TODO: check match!
 				alert('oid is not match');
 			}
-			if(s.error)
-				env.writeSaveError(c, s.error);
-			else
-				if(s.values) {
+			if(s.SUCCESS) {
+				var values = X.sql.valuesFromUpdate(s);
+				if(values) {
 					//insert/update
-					for(var i in s.values) {
+					for(var i in values) {
 						var obj = objs[t].objects[i];
 						if(obj) {
-							obj.DBValue = s.values[i]; //from server!!!! cids translated there!!!
+							obj.DBValue(values[i]); //from server!!!! cids translated there!!!
 							if(env.isChanged(obj))
-								env.write(obj, obj.DBValue); //if server change value
+								env.write(obj, obj.DBValue()); //if server change value
 						} else {
 							//server send new value, but does't ask it to change
 						}
@@ -103,12 +98,15 @@
 					//DBKeyValue has db values
 					var k = {};
 					for(var i in c.values) //loop in keyObject
-						k[c.values[i].$.name] = c.values[i].DBValue; //new DBValue here!
+						k[c.values[i].$.name] = c.values[i].DBValue(); //new DBValue here!
 					c.DBKeyValue = k;
 				} else {
 					//delete
 					c.DBKeyValue = null; //clear key value from deleted records
 				}
+			} else {
+				env.writeSaveError(c, JSON.stringify(s));
+			}
 		}
 		sentDBQueue = null;
 	}
@@ -131,30 +129,42 @@
 			//this.DBValue = undefined; //TODO: calc it when we read object from server, and set ready = true
 			this.values = vals; //to make DBKeyValue and to trace changes in key 
 			this.pended_changes = {}; // objects; pended_changes === null when ready
+			this.reload = function() {
+				var where = [];
+				for(var i in this.values) {
+					where.push({field:this.values[i],value:this.values[i]()});
+				}
+				
+			}
 			this.ready = ko.computed(function() {
 				var k = {};
-				var key_not_ready = false;
+				var insert_key = true;
 				for(var i in this.values) {
-					var v = env.read(this.values[i]);//making dependencies
-					if(this.values[i].$.pk) 
-						v = this.values[i].DBValue;
+					var v = env.read(this.values[i]);
+					if(X.isEmpty(v)) return false;
+					if(this.values[i].$.pk) {
+						v = this.values[i].DBValue();
+						if(!X.isEmpty(v)) //if all dbvalues of key is empty, then insert
+							insert_key = false;
+					}
 					k[this.values[i].$.name] = v;
-					if(X.isEmpty(v)) key_not_ready = true;
-					//if(X.isEmpty(v)) return false;
 				}
-				if(key_not_ready) return false; // has empty val -> not a pk! so, not ready
-				this.DBKeyValue = k;
+				this.DBKeyValue = insert_key ? null : k;
+				X.Upserte.lockSending();
 				if(this.pended_changes)
 					for(var i in this.pended_changes)
 						X.Upserte.toServer(this.pended_changes[i]);
+				X.Upserte.unlockSending();
 				this.pended_changes = null;
 				return true;
 			}, this);
 			this.sendToServer = function(elm) {
-				if(this.pended_changes) { // save in pended changes, if key is not ready
-					this.pended_changes[elm.$.name] = elm; //unique!
-				} else {
-					X.Upserte.toServer(elm);
+				if(env.isChanged(elm)) {//changed
+					if(this.pended_changes) { // save in pended changes, if key is not ready
+						this.pended_changes[elm.$.name] = elm; //unique!
+					} else {
+						X.Upserte.toServer(elm);
+					}
 				}
 			}
 			return this;
@@ -168,22 +178,31 @@
 	}
 })(X.DBdefaultEnv);
 X.Select = (function(env) {
+	var procObjects = {};
 	function onresponce(elm, response) {
-		var com = response[0];
-		if(com.SUCCESS) {
-			if(elm().length) elm.removeAll();
-			env.writeArray(elm, com.RESULTSET, true);
-		} else {
-			env.writeSelectError( elm, com.SQLSTATE +':'+com.MSGTXT );
+		for(var i=0;i<response.length;++i) {
+			var com = response[i];
+			if(com.SUCCESS) {
+				if(elm().length) elm.removeAll();
+					env.writeArray(elm, com.RESULTSET, true);
+			} else {
+				env.writeSelectError( elm, JSON.stringify(com) );
+			}
 		}
+		delete procObjects[X.OID(elm)];
 	}
 	function onerror(elm, error) {
 		env.onSendError("server responce:", error);
+		delete procObjects[X.OID(elm)];
 		sendQueryToServer(elm);//resend
 	}
 	function sendQueryToServer(elm) {
-		var query = X.sql.makeSelect( elm.makeQuery() );
-		env.send(query, onresponce.bind(this, elm), onerror.bind(this, elm));
+		var oid = X.OID(elm);
+		if(!procObjects[oid]) {
+			procObjects[oid] = elm;
+			var query = X.sql.makeSelect( elm.makeQuery() );
+			env.send(query, onresponce.bind(this, elm), onerror.bind(this, elm));
+		}
 	}
 	return {
 		sendQuery: sendQueryToServer

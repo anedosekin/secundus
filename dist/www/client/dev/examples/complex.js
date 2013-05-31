@@ -20,6 +20,7 @@ var metaModel = patchModel({
 			pk:true
 		},
 		street_name:{caption:'Название', pk:true},
+		street_population:{caption:'Население'}
 	},
 	cities:{
 		id:{caption:'id', pk:true},
@@ -27,7 +28,7 @@ var metaModel = patchModel({
 		capital:{caption:'Столичный город'},
 		streets:{caption:'Улицы',
 			target:'streets',
-			condition:[{here:'city_name',there:'city'}],
+			condition:[{here:'id',there:'city_id'}],
 			array:'auto'
 		},
 		country:{caption:'Страна',

@@ -79,12 +79,15 @@
 		makeCondition: function(root, cond, context, rel_params) {
 			if(cond.cache && cond.cache[rel_params]) return cond.cache[rel_params]; //cached
 			//context.rel root.id, root.field1, field1 = const or field1 = field2
-			var real_expr = [];
+			var w = {WHERE:[], LINK:[]};
 			for(var i=0;i<cond.length;++i) {
-				var expr = { there : eval("root."+cond[i].there), value: cond[i].value };
-				if(cond[i].here) expr.here = eval("context."+cond[i].here)
-				//if(context.alias === "") expr.value = ko.computed(function() {return expr.here()});//дополнительный запрос
-				real_expr.push(expr);
+				var fld = root[cond[i].there];
+				if(cond[i].value) {
+					w.WHERE.push(X.sql.node(fld)+'=?');
+					w.LINK.push(cond[i].value);
+				}
+				else
+					w.WHERE.push(X.sql.node(fld)+'='+X.sql.node(context[cond[i].here]));
 			}
 			//TODO: find appropriate table in context stack
 					// it's changed from call to call so can't be cached - what we should do?
@@ -96,16 +99,26 @@
 			params = rel_params && rel_params.split(':');
 			if(params) {
 				var p = 0;
-				for(var i = 0; i < real_expr.length; ++i)
-					if(real_expr[i].value === '?')
-						real_expr[i].value = params[p++];
+				for(var i = 0; i < w.LINK.length; ++i)
+					if(w.LINK[i].value === '?')
+						w.LINK[i].value = params[p++];
 			}
+			w.WHERE = w.WHERE.join(' AND ');
 			cond.cache = cond.cache || {};
-			return cond.cache[rel_params] = real_expr;
+			return cond.cache[rel_params] = w;
 		},
-		makeRelsAndAliases: function(table_node, context_node, alias) {
+		makeAliases:function(table_node, alias) {
 			alias = alias || { current: 0};
 			table_node.alias = makeAlias(alias.current++);
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) //it's rel params
+						this.makeAliases(rel.joins[j], alias);
+				}
+			}
+		},
+		makeRels: function(table_node, context_node) {
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
@@ -113,7 +126,7 @@
 						var target_node = rel.joins[j];
 						target_node.condition = 
 							X.modelBuilder.makeCondition(target_node, rel.$.condition, table_node, j);
-						this.makeRelsAndAliases(target_node, table_node, alias);
+						this.makeRels(target_node, table_node);
 					}
 				}
 			}
@@ -179,7 +192,7 @@
 				var rel = table_node[i];
 				if(rel) {
 					if(env.used(rel) && env.isMulti(rel)) {
-						rel.linked_where();
+						rel.where();
 					}
 					else if(rel.joins) {
 						for(var j in rel.joins) 
@@ -203,8 +216,9 @@
 			}
 		},
 		collectSQL: function(table_node, context_node) {
+			this.makeAliases(table_node);
 			this.makeUpdatables(table_node);
-			this.makeRelsAndAliases(table_node, context_node);
+			this.makeRels(table_node, context_node);
 			this.linkUsedConditions(table_node);
 			
 			var used = [];

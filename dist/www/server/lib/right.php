@@ -219,7 +219,7 @@ function process_expr_part(&$expr, &$used, $composed_roles) {
     }
 }
 
-$commnad_cache = array(); // key => prepared statament
+$command_cache = array(); // key => prepared statament
 
 function add_role_filter_to_command(&$cmd, $composed_roles) {
   global $RE_TABLE;
@@ -302,7 +302,7 @@ function make_command(&$cmd, $composed_roles,$dbh) {
     ;
 
   static $command_cache = array();
-  if(array_key_exists($cache_key, $command_cache)) return $commnad_cache[$cache_key];
+  if(array_key_exists($cache_key, $command_cache)) return $command_cache[$cache_key];
   
   $dbh = get_connection(main_table($cmd));
   $composed_comand = make_string_command($cmd, $dbh);
@@ -379,8 +379,14 @@ function compose_update($cmd, $dbh) {
 */
 
 function compose_insert($cmd, $dbh) {
-  $flds = implode(', ', array_keys($cmd[JS_FIELDS]));
-  $vals = implode(', ', array_values($cmd[JS_FIELDS]));
+  $flds = array();
+  foreach($cmd[JS_FIELDS] as $fldpair) {
+    foreach($fldpair as $fld => $expr)
+      $flds[] = $fld;
+  }
+  $vals = array_pad(array(), count($flds), "?");
+  $flds = implode(', ', $flds);
+  $vals = implode(', ', $vals);
   $main_table = main_table($cmd);
   if(!isset($cmd[JS_WHERE])) //no where here === hack!
     return "INSERT INTO $main_table ($flds) VALUES ($vals)";
