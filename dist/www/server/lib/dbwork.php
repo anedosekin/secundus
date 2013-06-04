@@ -1,54 +1,6 @@
 ﻿<?php
 ini_set('display_errors', 'On');
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// dbtype: mysql, postgres, mssql, oci, sqlite
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// for mssql\odbc, not comment if not use odbc
-$odbc_use=false;
-$odbcdrv="SQL Server";
-$odbcsrv="SHUMSKY-XC-O3\SQLEXPRESS";
-//-----------------
-$dbhost="127.0.0.1";
-// add test comment
-//----mssql-odbc----
-/*
- $dbtype="mssql";
-$dbport="1433";
-$dbuser="puser";
-$dbpass="1";
-$dbname="tst";
-*/
-//----mysql----
-/*
- $dbtype="mysql";
-$dbport="3306";
-$dbuser="puser";
-$dbpass="1";
-$dbname="test";
-*/
-//---postgres---
 
-$dbtype="pgsql";
-$dbport="5432";
-$dbuser="puser";
-$dbpass="1";
-$dbname="test";
-
-//---orecle-----
-/*
- $dbtype="oci";
-$dbport="1521";
-$dbuser="puser";
-$dbpass="1";
-$dbname="XE";
-*/
-//---sqlite3----
-/*
- $dbtype="sqlite";
-$dbuser=null;
-$dbpass=null;
-$dbhost="D:/soft/BD/sql_lite/test.db";
-*/
 //----------------------
 define ("LOG_ERR_COMM","ERR_COM");
 define ("LOG_ERR_SYS","ERR_SYS");
@@ -61,8 +13,6 @@ define ("MSG_EXEC_OK","SUCCESS");
 define ("MSG_ROW_COL","ROWS");
 //----------------------
 define ("MSG_SID","SETSID");
-
-
 //----------------------
 $jresult=json_decode('{"result":{"commands":[]}}',true);
 $requestOk=true;
@@ -112,14 +62,8 @@ function logMsg($txt,$type="",$data=null,$errcode=-1,$count=0)
 			}
 		}
 	}
-	if ($type==LOG_ERR_SYS)
-	{
-		$jresult['errors']['system'][]=array(MSG_TXT=>$txt,MSG_ERR_CODE=>$errcode);
-	}
-	if ($type==LOG_PRINT)
-	{
-		$jresult['echo'][]=$txt;
-	}
+	if ($type==LOG_ERR_SYS) $jresult['errors']['system'][]=array(MSG_TXT=>$txt,MSG_ERR_CODE=>$errcode);
+	if ($type==LOG_PRINT) $jresult['echo'][]=$txt;
 
 }
 //-------- save and exit ---
@@ -138,16 +82,6 @@ function endScript($isbin=false)
 	}
 	echo json_encode($jresult);
 	die;
-}
-//- check exists params -
-function checkExists($val,$params)
-{
-	$result=true;
-	foreach ($params as $tmp)
-	{
-		if (!isset($val[$tmp])) $result=false;
-	}
-	return $result;
 }
 //------ db prepear ------
 function prepearDB(&$db)
@@ -290,8 +224,7 @@ if ($jdata==NULL){
 $tmpvar=null;
 
 try
-{
-	
+{	
 	//PDO::ATTR_PERSISTENT => true - кэширование сессии DB
 	//PDO::ATTR_ORACLE_NULLS=>PDO::NULL_TO_STRING - null -> ""
 	/*
@@ -312,7 +245,6 @@ try
 	$db=get_connection(null);
 	if ( $db)
 	{
-		$db->dialect=$dbtype;
 		prepearDB($db);
 		//testSIDS($jdata['commands'],$db);
 		$sid="";
@@ -340,7 +272,7 @@ try
 		{
 			$resultsql="";
 			$curcom=$dat;
-			if (!checkExists($dat,array(JS_CMDTYPE)))
+			if (!isset($dat[JS_CMDTYPE]))
 			{
 				logMsg("Error! Not defined type.",LOG_ERR_COMM,$dat);
 				continue;
@@ -357,22 +289,19 @@ try
 				if (!($stmt->execute()))
 				{
 					logMsg("Exec err.".$stmt->errorInfo()[2],LOG_ERR_COMM,$dat,$stmt->errorInfo()[0]);
-					print_r($stmt->queryString);
+					//print_r($stmt->queryString);
 				}
 				else 
 				{					
 					if ($dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$stmt->fetchAll(PDO::FETCH_ASSOC);
 					logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
-					print_r($stmt->queryString);
-					
-				}
-				
+					//print_r($stmt->queryString);					
+				}				
 			}
 			catch(Exception $ex)
 			{
 				echo $ex->getMessage();
-			}
-				
+			}				
 		}
 	}
 	else logMsg("DB error!",LOG_ERR_SYS);
