@@ -7,7 +7,7 @@
 	{
 		tableNode: function(tableObject, parent) {
 			var self = this;
-			self.$ = tableObject;
+			self.$$ = tableObject;
 			self.parent = function() { return parent }
 			//self.parent = parent;
 			self.alias = "";
@@ -73,21 +73,36 @@
 			var key = Array.prototype.join.call(arguments,":") || "";
 			//table linked with rel //rel itself
 			return this.joins[key] ||
-				(this.joins[key] = new X.modelBuilder.tableNode(this.$.target, this));
+				(this.joins[key] = new X.modelBuilder.tableNode(this.$$, this));
+		},
+		appendElement: function(cont, def) {
+			var table_node = new X.modelBuilder.tableNode(def, cont);
+			
+			if(env.isMulti(cont))
+				cont.push(table_node);
+			else
+				cont[def.name] = table_node;
+			
+			this.makeAliases(table_node);
+			this.makeUpdatables(table_node);
+			this.makeRels(table_node);
+			this.makeWheresLinks(table_node);
+			return table_node;
 		},
 		//x.rel() == X.modelBuilder.traverseRel(this.rel, arguments)
 		makeCondition: function(root, cond, context, rel_params) {
 			if(cond.cache && cond.cache[rel_params]) return cond.cache[rel_params]; //cached
 			//context.rel root.id, root.field1, field1 = const or field1 = field2
-			var w = {WHERE:[], LINK:[]};
+			var real_expr = {where:"", link:[]};
+			var where = [];
 			for(var i=0;i<cond.length;++i) {
 				var fld = root[cond[i].there];
 				if(cond[i].value) {
-					w.WHERE.push(X.sql.node(fld)+'=?');
-					w.LINK.push(cond[i].value);
+					where.push(X.sql.node(fld)+'=?');
+					real_expr.link.push(cond[i].value);
 				}
 				else
-					w.WHERE.push(X.sql.node(fld)+'='+X.sql.node(context[cond[i].here]));
+					where.push(X.sql.node(fld)+'='+X.sql.node(context[cond[i].here]));
 			}
 			//TODO: find appropriate table in context stack
 					// it's changed from call to call so can't be cached - what we should do?
@@ -99,13 +114,13 @@
 			params = rel_params && rel_params.split(':');
 			if(params) {
 				var p = 0;
-				for(var i = 0; i < w.LINK.length; ++i)
-					if(w.LINK[i].value === '?')
-						w.LINK[i].value = params[p++];
+				for(var i = 0; i < real_expr.link.length; ++i)
+					if(real_expr.link[i] === '?')
+						real_expr.link[i] = params[p++];
 			}
-			w.WHERE = w.WHERE.join(' AND ');
+			real_expr.where = where.join(' AND ');
 			cond.cache = cond.cache || {};
-			return cond.cache[rel_params] = w;
+			return cond.cache[rel_params] = real_expr;
 		},
 		makeAliases:function(table_node, alias) {
 			alias = alias || { current: 0};
@@ -118,7 +133,7 @@
 				}
 			}
 		},
-		makeRels: function(table_node, context_node) {
+		makeRels: function(table_node) {
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
@@ -126,7 +141,7 @@
 						var target_node = rel.joins[j];
 						target_node.condition = 
 							X.modelBuilder.makeCondition(target_node, rel.$.condition, table_node, j);
-						this.makeRels(target_node, table_node);
+						this.makeRels(target_node);
 					}
 				}
 			}
@@ -141,7 +156,7 @@
 				if(elem && elem.value && elem.value.$.pk)
 					kv[elem.value.$.name] = elem.value;
 			}
-			return table_node.key = X.Upserte.new_key(table_node.$, kv);
+			return table_node.key = X.Upserte.new_key(table_node.$$, kv);
 			//TODO: subscibe to changes
 		},
 		makeUpdatables: function(table_node) {
@@ -161,6 +176,30 @@
 				}
 			}
 		},
+		makeWheresLinks:function(table_node){
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && env.isMulti(rel) && env.used(rel)) {
+					rel.link = ko.computed(function() {
+						var link = [];
+						var conds = this.$.condition;
+						for(var i=0;i<conds.length;++i) {
+							var f = table_node[conds[i].here];
+							var v = f();//subscribe to key link fields anyway (refresh need key)
+							if(rel.defer)
+								link.push(v)
+							else
+								link.push({field:X.sql.node(f)});
+						}
+						return link;
+					}, rel);
+				}
+				else if(rel && rel.joins) {
+					for(var j in rel.joins) 
+						this.makeWheresLinks(rel.joins[j]);
+				}
+			}
+		},
 		collectUsage: function(table_node, used) {
 			//here we have condition for this node
 			//we should right(!) associate joins under relations
@@ -171,8 +210,12 @@
 			for(var i in table_node) {
 				var elem = table_node[i];
 				if(elem && env.isMulti(elem)) {
-					if(elem.auto && env.used(elem)) 
-						used.push({node: table_node, elem: elem, select:elem.makeQuery()});
+					if(elem.link && elem.auto) {
+						var select = X.sql.makeSelect(elem, elem.$$);
+						used.push({node: table_node, elem: elem, 
+							select: select.sql });
+						elem.remove(select.test_node);
+					}
 				}
 				else
 					if(elem && env.used(elem))
@@ -185,53 +228,6 @@
 					for(var j in rel.joins)
 						this.collectUsage(rel.joins[j], used);
 				}
-			}
-		},
-		linkUsedConditions: function(table_node) {
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel) {
-					if(env.used(rel) && env.isMulti(rel)) {
-						rel.where();
-					}
-					else if(rel.joins) {
-						for(var j in rel.joins) 
-							this.linkUsedConditions(rel.joins[j], table_node);
-					}
-				}
-			}
-		},
-		collectSubselects: function(table_node, selects) {
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel) {
-					if(rel.auto && env.used(rel)) {
-						selects.push(rel.makeQuery());
-					}
-					else if(rel.joins) {
-						for(var j in rel.joins) 
-							this.collectSubselects(rel.joins[j], selects);
-					}
-				}
-			}
-		},
-		collectSQL: function(table_node, context_node) {
-			this.makeAliases(table_node);
-			this.makeUpdatables(table_node);
-			this.makeRels(table_node, context_node);
-			this.linkUsedConditions(table_node);
-			
-			var used = [];
-			this.collectUsage(table_node, used);
-			var links = [];
-			var joins = X.sql.collectJoins(table_node, links);
-			var selects = [];
-			this.collectSubselects(table_node, selects);
-			return {
-				used: used, //SELECT
-				joins: joins, //FROM
-				links: links, //values for questions
-				selects: selects //subselects
 			}
 		}
 	}

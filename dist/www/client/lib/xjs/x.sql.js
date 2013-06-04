@@ -14,15 +14,16 @@ var rez = {
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
 					var on = rel.joins[j].condition;
-					link = link.concat(on.LINK);
 					ret.push(' LEFT OUTER JOIN ');
 					ret.push(this.collectJoins(rel.joins[j], link));
-					ret.push(' ON '+on.WHERE);
+					ret.push(' ON '+on.where);
+					for(var k=0;k<on.link.length;++k)
+						link.push(on.link[k]);
 				}
 			}
 		}
 		function table_id(node) {
-			return node.$.name + ' ' + node.alias;
+			return node.$$.name + ' ' + node.alias;
 		}
 		
 		if(ret.length == 0) {
@@ -31,6 +32,19 @@ var rez = {
 		}
 		ret.unshift(table_id(table_node)); // if we have joins, add table to first element in join sequence
 		return '('+ret.join('')+')';
+	},
+	makeWhere: function(cont, table_node, links) {
+		if(!cont.link) return [];
+		var where = [];
+		var c = cont.$.condition
+		for(var i=0;i<c.length;++i) {
+			where.push(X.sql.node(table_node[c[i].there])+'=?');
+		}
+		var link = cont.link();
+		for(var i=0;i<link.length;++i) {
+			links.push(link[i]);
+		}
+		return [where.join(' AND ')];
 	},
 	/*
 		All quotes supplied in values
@@ -45,7 +59,7 @@ var rez = {
 		}
 		return rez.join(' AND ');
 	},
-	makeSelect: function(object, where) {
+	makeSelect: function(cont, def) {
 		/*
 		statement=
 		{
@@ -58,38 +72,28 @@ var rez = {
 			GROUP:'string'
 		}
 		*/
-		/*
-		Link патчит значениями и полями все свои '?', а также все вопросики в where ниже на один уровень запросах
-		*/
+		//link патчит значениями и полями все '?' в своём запросе
+
 		var sql = { TYPE:'SELECT', FIELDS:[], FROM:'' ,WHERE:[], LINK: [] };
+		
+		var new_node = X.modelBuilder.appendElement(cont, def);
+		
 		//fields
-		for(var i = 0; i < object.used.length; ++i) {
-			var field = object.used[i];
-			if(field.select) {
-				var subwhere = field.elem.where();
-				sql.LINK = sql.LINK.concat(subwhere.LINK);
-				sql.FIELDS.push(this.makeSelect(field.select, subwhere.WHERE));
+		var fields = [];
+		X.modelBuilder.collectUsage(new_node, fields);
+		for(var i = 0; i < fields.length; ++i) {
+			if(fields[i].select) {
+				sql.FIELDS.push(fields[i].select);
 			} else {
-				sql.FIELDS.push(field.node.alias+"."+field.elem.$.name);
+				sql.FIELDS.push(fields[i].node.alias+"."+fields[i].elem.$.name);
 			}
 		}
 		//from
-		if(X.isArray(object.joins)) 
-			sql.FROM = object.joins.join('')
-		else
-			sql.FROM = object.joins;
-		
-		sql.LINK = sql.LINK.concat(object.links);
-		
+		sql.FROM = X.sql.collectJoins(new_node, sql.LINK);
 		//where
-		where && 
-			sql.WHERE.push(where);
-		/*for(var i in sql) {
-			if(X.isArray(sql[i]) && sql[i].length==0) sql[i] = undefined;
-			else
-			if(!sql[i]) sql[i] = undefined;
-		}*/
-		return sql;
+		sql.WHERE = X.sql.makeWhere(cont, new_node, sql.LINK);
+		
+		return {sql: sql, test_node: new_node};
 	},
 	makeUpserte: function(object) {
 		/*

@@ -15,7 +15,7 @@
 		for(i = 0; i < DBQueue.cmds.length; ++i) {
 			var qe = DBQueue.cmds[i];
 			var to_send = { 
-					table: qe.keyObject.$.name, 
+					table: qe.keyObject.$$.name, 
 					key: qe.keyObject.DBKeyValue,
 					oid: X.OID(qe.keyObject) 
 					}
@@ -125,7 +125,7 @@
 		},
 		
 		key: function(DBTableDescr, vals) { // получает { value: KO }
-			this.$ = DBTableDescr;
+			this.$$ = DBTableDescr;
 			//this.DBValue = undefined; //TODO: calc it when we read object from server, and set ready = true
 			this.values = vals; //to make DBKeyValue and to trace changes in key 
 			this.pended_changes = {}; // objects; pended_changes === null when ready
@@ -200,8 +200,9 @@ X.Select = (function(env) {
 		var oid = X.OID(elm);
 		if(!procObjects[oid]) {
 			procObjects[oid] = elm;
-			var query = X.sql.makeSelect( elm.makeQuery() );
-			env.send(query, onresponce.bind(this, elm), onerror.bind(this, elm));
+			var select = X.sql.makeSelect(elm, elm.$$);
+			elm.remove(select.test_node);
+			env.send(select.sql, onresponce.bind(this, elm), onerror.bind(this, elm));
 		}
 	}
 	return {

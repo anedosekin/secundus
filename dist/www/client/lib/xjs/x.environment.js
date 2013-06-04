@@ -28,9 +28,7 @@
 	writeArray: function(elm, value) {
 		for(var i = 0;i < value.length;++i) {
 			var usage = [];
-			var node = elm.appendElement();
-			X.modelBuilder.makeUpdatables(node);
-			X.modelBuilder.linkUsedConditions(node);
+			var node = X.modelBuilder.appendElement(elm, elm.$$);
 			X.modelBuilder.collectUsage(node, usage);
 			this.writeRecord(node, usage, value[i]);
 		}
@@ -41,8 +39,8 @@
 	},
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
-	writeSaveError: function(elm, err) { alert(err); /*or set attribute!*/ },
-	writeSelectError: function(elm, err) { alert(err); },
+	writeSaveError: function(elm, err) { alert('Save error:'+err); /*or set attribute!*/ },
+	writeSelectError: function(elm, err) { alert('Select error:'+err); },
 	//check if this observable bound to something (need to be read)
 	used: function(elm) {
 		return elm.$ && elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
@@ -56,7 +54,7 @@
 		c.parent = container;
 		c.DBValue = ko.observable();
 	},
-	isMulti:function(elm) {return elm.appendElement },
+	isMulti:function(elm) {return elm.addNewLine },
 	//convert element (made with makeElement) to writable one (which is able to send itself to server)
 	convertToUpdatable: function(elm) {
 		elm.subscribe(function() {
@@ -68,8 +66,9 @@
 	// like joins{}, val, and so on
 	makeRelation: function(container, name, fielddef) {
 			var c = container[name] = function() { return X.modelBuilder.traverseRel.apply(this[name], arguments); }
-			c.joins = {}
+			c.joins = {};
 			c.$ = fielddef;
+			c.$$ = fielddef.target;
 			c.parent = container;
 			X.DBdefaultEnv.makeElement(c, 'value', fielddef); //observable = rel value (as field value)
 			//TODO:
@@ -79,50 +78,21 @@
 			// and maybe something to our relation bind
 	},
 	makeArray: function(container, name, def) {
+		//making subitems and main array - mix
 		var env = this;
 		var c = container[name] = ko.observableArray();
 		c.$ = def;
+		c.$$ = def.target || def;
 		c.parent = container;
 		c.auto = def.array && def.array.indexOf('auto')==0;
 		c.defer = def.array && def.array.indexOf('defer')==0;
 		c.ready = ko.observable(false);
-		c.current_node = ko.observable();
-		c.where = ko.computed(function() {//subscribe to fields in condition
-			if(!def.condition) return;
-			var w = {WHERE:[], LINK:[]}
-			var table_node = c.current_node();
-			for(var i=0;i<def.condition.length;++i) {
-				var cond = def.condition[i];
-				w.WHERE.push(X.sql.node(table_node[cond.there])+'=?');
-				if(c.defer)
-					w.LINK.push(c.parent[cond.here]())
-				else
-					w.LINK.push({field:X.sql.node(c.parent[cond.here])});
-			}
-			w.WHERE = w.WHERE.join(' AND ');
-			return where;
-		}, c, {deferEvaluation: true});/*считается только для используемых массивов*/
-		c.appendElement = function() {
-			c.current_node(new X.modelBuilder.tableNode(def.target || def, c));
-			var table_node = c.current_node();
-			table_node.where = c.where();
-			c.push(table_node);
-			return table_node;
-		}
-		c.makeQuery = function() {
-			var init_node = c.appendElement();
-			var sql = X.modelBuilder.collectSQL(init_node, c.parent);
-			c.remove(init_node);
-			return sql;
-		}
 		c.sendQuery = function() {
 			c.ready(false);
 			X.Select.sendQuery(c);
 		}
 		c.addNewLine = function() {
-			var node = c.appendElement();
-			X.modelBuilder.makeUpdatables(node);
-			X.modelBuilder.linkUsedConditions(node);
+			X.modelBuilder.appendElement(c, def);
 		}
 	},
 	makeRecord: function(def) {
