@@ -144,7 +144,6 @@ function getSID(&$db)
 		{
 			$result=$ttt->fetchAll();
 			if ($result) $result=$result[0][0];
-			//print_r($db->errorInfo());
 		}
 		else logMsg($db->errorInfo()[2],LOG_ERR_SYS,null,$db->errorInfo()[0]);
 	}
