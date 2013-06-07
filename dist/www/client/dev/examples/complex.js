@@ -16,7 +16,7 @@ var metaModel = patchModel({
 	streets:{
 		city_id:{caption:'Город',
 			target:'cities',
-			condition:[{there:'id',here:'city_id'}],
+			condition:[{target:'id',point:'city_id'}],
 			pk:true
 		},
 		street_name:{caption:'Название', pk:true},
@@ -28,23 +28,23 @@ var metaModel = patchModel({
 		capital:{caption:'Столичный город'},
 		streets:{caption:'Улицы',
 			target:'streets',
-			condition:[{here:'id',there:'city_id'}],
+			condition:[{target:'id',point:'city_id'}],
 			array:'auto'
 		},
 		country:{caption:'Страна',
 			target:'countries', 
-			condition:[{there:'country_name',here:'country'}]
+			condition:[{target:'country_name',point:'country'}]
 		}
 	},
 	countries:{
 		country_name:{caption:'Название', pk:true},
 		capital_city:{caption:'Столица',
 			target:'cities',
-			condition:[{there:'capital',value:'true'}, {there:'country',here:'country_name'}]
+			condition:[{target:'capital',value:'true'}, {target:'country',point:'country_name'}]
 		},
 		cities:{caption:'Города',
 			target:'cities',
-			condition:[{there:'country', here:'country_name'}],
+			condition:[{target:'country', point:'country_name'}],
 			array:'auto'
 		}
 	},
@@ -53,7 +53,7 @@ var metaModel = patchModel({
 		street_name:{
 			caption:'Улица',
 			target:'streets',
-			condition:[{there:'street_name',here:'street_name'},{there:'city_id', here:'city_id'}]
+			condition:[{target:'street_name',point:'street_name'},{target:'city_id', point:'city_id'}]
 		},
 		city_id:{caption:'Город'},
 		building_number:{caption:'Номер дома'}

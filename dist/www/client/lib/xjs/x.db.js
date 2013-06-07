@@ -87,9 +87,9 @@
 					for(var i in values) {
 						var obj = objs[t].objects[i];
 						if(obj) {
-							obj.DBValue(values[i]); //from server!!!! cids translated there!!!
+							env.dbvalue(obj)(values[i]); //from server!!!! cids translated there!!!
 							if(env.isChanged(obj))
-								env.write(obj, obj.DBValue()); //if server change value
+								env.write(obj, env.dbvalue(obj)); //if server change value
 						} else {
 							//server send new value, but does't ask it to change
 						}
@@ -98,7 +98,7 @@
 					//DBKeyValue has db values
 					var k = {};
 					for(var i in c.values) //loop in keyObject
-						k[c.values[i].$.name] = c.values[i].DBValue(); //new DBValue here!
+						k[c.values[i].$.name] = env.dbvalue(c.values[i])(); //new DBValue here!
 					c.DBKeyValue = k;
 				} else {
 					//delete
@@ -143,7 +143,7 @@
 					var v = env.read(this.values[i]);
 					if(X.isEmpty(v)) return false;
 					if(this.values[i].$.pk) {
-						v = this.values[i].DBValue();
+						v = env.dbvalue(this.values[i])();
 						if(!X.isEmpty(v)) //if all dbvalues of key is empty, then insert
 							insert_key = false;
 					}
@@ -183,8 +183,15 @@ X.Select = (function(env) {
 		for(var i=0;i<response.length;++i) {
 			var com = response[i];
 			if(com.SUCCESS) {
-				if(elm().length) elm.removeAll();
-					env.writeArray(elm, com.RESULTSET, true);
+				if(env.isMulti(elm)) {
+					elm.removeAll();
+					env.writeArray(elm, com.RESULTSET);
+				}
+				else {
+					if(com.RESULTSET.length != 1) 
+						env.writeSelectError( elm, JSON.stringify(com) );
+					env.writeRecord(elm, com.RESULTSET[0]);
+				}
 			} else {
 				env.writeSelectError( elm, JSON.stringify(com) );
 			}
@@ -196,16 +203,40 @@ X.Select = (function(env) {
 		delete procObjects[X.OID(elm)];
 		sendQueryToServer(elm);//resend
 	}
-	function sendQueryToServer(elm) {
+	function sendQueryToServer(elm, sql) {
 		var oid = X.OID(elm);
 		if(!procObjects[oid]) {
 			procObjects[oid] = elm;
-			var select = X.sql.makeSelect(elm, elm.$$);
-			elm.remove(select.test_node);
-			env.send(select.sql, onresponce.bind(this, elm), onerror.bind(this, elm));
+			env.send(sql, onresponce.bind(this, elm), onerror.bind(this, elm));
 		}
 	}
+	function rel_key(kv) {
+		this.key = kv;
+		this.changed = ko.computed(function() {
+			var all_changed = true;
+			for(var i in this.key) {
+				var v = env.read(this.key[i]);//subscription
+				if(env.isChanged(this.key[i]))
+					this.key[i].changed = true;
+				if(!this.key[i].changed) 
+					all_changed = false;
+			}
+			if(!all_changed) return false;
+			for(var i in this.key)
+				delete this.key[i].changed;
+			for(var i in this.key) 
+				if(this.key[i].value) {
+					var c = this.key[i];
+					for(var j in c.joins) {
+						var sql = X.sql.makeSelect(c.joins[j]);
+						X.Select.sendQuery(c.joins[j], sql);
+					}
+				}
+			return true;
+		}, this);
+	}
 	return {
-		sendQuery: sendQueryToServer
+		sendQuery: sendQueryToServer,
+		rel_key: rel_key
 	}
 })(X.DBdefaultEnv);

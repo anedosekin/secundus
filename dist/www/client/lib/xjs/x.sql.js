@@ -13,12 +13,12 @@ var rez = {
 			var rel = table_node[i];
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
-					var on = rel.joins[j].condition;
+					var sublink = rel.joins[j].link();
 					ret.push(' LEFT OUTER JOIN ');
 					ret.push(this.collectJoins(rel.joins[j], link));
-					ret.push(' ON '+on.where);
-					for(var k=0;k<on.link.length;++k)
-						link.push(on.link[k]);
+					ret.push(' ON '+rel.joins[j].where);
+					for(var k=0;k<sublink.length;++k)
+						link.push(sublink[k]);
 				}
 			}
 		}
@@ -33,19 +33,6 @@ var rez = {
 		ret.unshift(table_id(table_node)); // if we have joins, add table to first element in join sequence
 		return '('+ret.join('')+')';
 	},
-	makeWhere: function(cont, table_node, links) {
-		if(!cont.link) return [];
-		var where = [];
-		var c = cont.$.condition
-		for(var i=0;i<c.length;++i) {
-			where.push(X.sql.node(table_node[c[i].there])+'=?');
-		}
-		var link = cont.link();
-		for(var i=0;i<link.length;++i) {
-			links.push(link[i]);
-		}
-		return [where.join(' AND ')];
-	},
 	/*
 		All quotes supplied in values
 	*/
@@ -59,7 +46,7 @@ var rez = {
 		}
 		return rez.join(' AND ');
 	},
-	makeSelect: function(cont, def) {
+	makeSelect: function(table_node) {
 		/*
 		statement=
 		{
@@ -75,12 +62,9 @@ var rez = {
 		//link патчит значениями и полями все '?' в своём запросе
 
 		var sql = { TYPE:'SELECT', FIELDS:[], FROM:'' ,WHERE:[], LINK: [] };
-		
-		var new_node = X.modelBuilder.appendElement(cont, def);
-		
 		//fields
 		var fields = [];
-		X.modelBuilder.collectUsage(new_node, fields);
+		X.modelBuilder.collectUsage(table_node, fields);
 		for(var i = 0; i < fields.length; ++i) {
 			if(fields[i].select) {
 				sql.FIELDS.push(fields[i].select);
@@ -89,11 +73,15 @@ var rez = {
 			}
 		}
 		//from
-		sql.FROM = X.sql.collectJoins(new_node, sql.LINK);
+		sql.FROM = X.sql.collectJoins(table_node, sql.LINK);
 		//where
-		sql.WHERE = X.sql.makeWhere(cont, new_node, sql.LINK);
-		
-		return {sql: sql, test_node: new_node};
+		sql.WHERE = !X.isEmpty(table_node.where) ? [table_node.where] : [];
+		//sql.WHERE = [table_node.where];
+		var link = table_node.link ? table_node.link() : [];
+		for(var i=0;i<link.length;++i) {
+			sql.LINK.push(link[i]);
+		}
+		return sql;
 	},
 	makeUpserte: function(object) {
 		/*

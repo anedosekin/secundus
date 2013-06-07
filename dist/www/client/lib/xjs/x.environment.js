@@ -1,17 +1,21 @@
 ﻿X.DBdefaultEnv = {
 	//elm - observable
 	//read from observable
+	peek: function(elm) { return elm.value ? elm.value.peek() : elm.peek(); },
 	read: function(elm) { return elm.value ? elm.value() : elm(); },
+	dbvalue: function(elm) { return elm.value ? elm.value.DBValue : elm.DBValue },
 	//write to observable or observableArray
 	write:function(elm, value) {
 		(elm.joins ? elm.value : elm)(value);
 	},
 	writeFromDB:function(elm, value) {
-		elm.DBValue(value);
+		this.dbvalue(elm)(value);
 		this.write(elm, value);
 	},
-	writeRecord: function(elm, usage, value) {
+	writeRecord: function(node, value) {
 		var i = 0;
+		var usage = [];
+		X.modelBuilder.collectUsage(node, usage);
 		for(var j in value) {
 			//TODO: server answer value length may be greater than usage. should check it and alert
 			var data = value[j];
@@ -23,19 +27,17 @@
 			}
 			i++;
 		}
-		elm.ready(true);
+		node.ready(true);
 	},
-	writeArray: function(elm, value) {
+	writeArray: function(container, value) {
 		for(var i = 0;i < value.length;++i) {
-			var usage = [];
-			var node = X.modelBuilder.appendElement(elm, elm.$$);
-			X.modelBuilder.collectUsage(node, usage);
-			this.writeRecord(node, usage, value[i]);
+			var node = X.modelBuilder.appendElement(container);
+			this.writeRecord(node, value[i]);
 		}
-		elm.ready(true);
+		container.ready(true);
 	},
 	isChanged:function(elm) {
-		return this.read(elm) !== elm.DBValue();
+		return this.peek(elm) !== this.peek(this.dbvalue(elm));
 	},
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
@@ -46,7 +48,9 @@
 		return elm.$ && elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
 	},
 	//check if this observable bound to input or can be changed somehow else
-	boundAsUpdatable: function(elm) { return elm.boundAsUpdatable; },
+	boundAsUpdatable: function(elm) { 
+		return elm.value ? elm.value.boundAsUpdatable : elm.boundAsUpdatable 
+	},
 	//make observable with name in container using fielddef as description
 	makeElement: function(container, name, fielddef) {
 		var c = container[name] = ko.observable();
@@ -71,6 +75,12 @@
 			c.$$ = fielddef.target;
 			c.parent = container;
 			X.DBdefaultEnv.makeElement(c, 'value', fielddef); //observable = rel value (as field value)
+			/*c.refresh = function() {
+				for(var i in c.joins) {
+					var sql = X.sql.makeSelect(c.joins[i]);
+					X.Select.sendQuery(c.joins[i], sql);
+				}
+			}*/
 			//TODO:
 			//1) array to choose rel (if editable!) (it's like subitems = our array, but without where)
 			//2) text - observable to show rel in UI (may be same as val)
@@ -87,12 +97,18 @@
 		c.auto = def.array && def.array.indexOf('auto')==0;
 		c.defer = def.array && def.array.indexOf('defer')==0;
 		c.ready = ko.observable(false);
+		c.refresh = function() {
+			c.sendQuery();
+		}
 		c.sendQuery = function() {
 			c.ready(false);
-			X.Select.sendQuery(c);
+			var test_node = X.modelBuilder.appendElement(c);
+			var sql = X.sql.makeSelect(test_node);
+			c.remove(test_node);
+			X.Select.sendQuery(c, sql);
 		}
 		c.addNewLine = function() {
-			X.modelBuilder.appendElement(c, def);
+			X.modelBuilder.appendElement(c);
 		}
 	},
 	makeRecord: function(def) {
@@ -166,6 +182,7 @@ X.server = (function(env) {
 			else {
 				to_send.commands.push(data);
 			}
+			console.log(JSON.stringify(to_send));
 			return JSON.stringify(to_send);
 		}
 	}

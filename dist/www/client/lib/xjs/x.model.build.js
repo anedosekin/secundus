@@ -5,13 +5,15 @@
 		}
 	var res =
 	{
-		tableNode: function(tableObject, parent) {
+		tableNode: function(tableObject, container) {
 			var self = this;
 			self.$$ = tableObject;
-			self.parent = function() { return parent }
+			//self.parent = function() { return container }
 			//self.parent = parent;
 			self.alias = "";
 			self.condition = null;
+			self.link = null;
+			self.where = "";
 			self.key = null;
 			//this.ready = ko.observable(false);
 			for(var i in tableObject) {
@@ -32,7 +34,8 @@
 						env.makeArray(self, i, fieldObject);
 				}
 			}
-			
+			//container - backrel ko.array or relation with value
+			//container.parent - tableNode with self in
 			self.ready = ko.observable(false);
 			/*self.ready = ko.computed(
 			{
@@ -53,6 +56,7 @@
 				}
 			});
 			*/
+			/*
 			self.destroyElement = function() {
 				//elm.destroyElement = function(to_destroy) { 
 				//	this.destroy(to_destroy);
@@ -66,7 +70,7 @@
 					self.parent().remove(self);
 				}
 			}
-			
+			*/
 			return this;
 		},
 		traverseRel: function() {
@@ -75,53 +79,22 @@
 			return this.joins[key] ||
 				(this.joins[key] = new X.modelBuilder.tableNode(this.$$, this));
 		},
-		appendElement: function(cont, def) {
-			var table_node = new X.modelBuilder.tableNode(def, cont);
+		appendElement: function(cont) {
+			var table_node = new X.modelBuilder.tableNode(cont.$$, cont);
 			
 			if(env.isMulti(cont))
 				cont.push(table_node);
 			else
 				cont[def.name] = table_node;
-			
+
 			this.makeAliases(table_node);
 			this.makeUpdatables(table_node);
-			this.makeRels(table_node);
-			this.makeWheresLinks(table_node);
+			this.makeOps(cont, table_node);
+			this.makeRels(cont, table_node);
+			this.makeRelKeys(table_node);
 			return table_node;
 		},
 		//x.rel() == X.modelBuilder.traverseRel(this.rel, arguments)
-		makeCondition: function(root, cond, context, rel_params) {
-			if(cond.cache && cond.cache[rel_params]) return cond.cache[rel_params]; //cached
-			//context.rel root.id, root.field1, field1 = const or field1 = field2
-			var real_expr = {where:"", link:[]};
-			var where = [];
-			for(var i=0;i<cond.length;++i) {
-				var fld = root[cond[i].there];
-				if(cond[i].value) {
-					where.push(X.sql.node(fld)+'=?');
-					real_expr.link.push(cond[i].value);
-				}
-				else
-					where.push(X.sql.node(fld)+'='+X.sql.node(context[cond[i].here]));
-			}
-			//TODO: find appropriate table in context stack
-					// it's changed from call to call so can't be cached - what we should do?
-					//BUT!
-					// we always has condition in from field1 = const or field1 = field2
-					// where field1 is from right table and field2 from context table (which is one level up)
-					// at least for now it's always so
-					// so! we can just bound field2 to alias later, in sql
-			params = rel_params && rel_params.split(':');
-			if(params) {
-				var p = 0;
-				for(var i = 0; i < real_expr.link.length; ++i)
-					if(real_expr.link[i] === '?')
-						real_expr.link[i] = params[p++];
-			}
-			real_expr.where = where.join(' AND ');
-			cond.cache = cond.cache || {};
-			return cond.cache[rel_params] = real_expr;
-		},
 		makeAliases:function(table_node, alias) {
 			alias = alias || { current: 0};
 			table_node.alias = makeAlias(alias.current++);
@@ -133,15 +106,95 @@
 				}
 			}
 		},
-		makeRels: function(table_node) {
+		makeLink: function(container, table_node, rel_params) {
+			table_node.link = ko.computed(function() {
+				if(!this.$.condition) return [];
+				var where = [];
+				var link = [];
+				var ops = table_node.linkops;
+				//table_node - new node
+				//this.parent - current node
+				for(var i=0;i<ops.length;++i) {
+					var o = ops[i];
+					var value = null;
+					//value calculation and subscription
+					if(env.isMulti(this)) {
+						value = env.read(o.value);//always subscribe
+						//TODO:subscribe if updatables, other way - peek
+					} else {
+						value = o.rawvalue ? o.rawvalue : 
+							(env.boundAsUpdatable(o.value) ? env.read(o.value) : 
+													env.peek(o.value));
+					}
+					if(X.isEmpty(value) && o.rawvalue===undefined) {
+						//join and where differences
+						if(env.isMulti(this)) {
+							where.push( X.sql.node(o.field) +"=?");
+							link.push({ field: X.sql.node(o.value) });
+						} else
+							where.push( X.sql.node(o.field) +"="+ X.sql.node(o.value));
+					} else {
+						where.push( X.sql.node(o.field) +"=?");
+						link.push( value );
+					}
+				}
+				table_node.where = where.join(" AND ");
+				return link;
+			}, container);
+		},
+		makeOperands:function(elm, current_node, new_node, rel_params) {
+			var link = [];
+			var p = 0;
+			var params = rel_params && rel_params.split(':');
+			for(var i=0;i<elm.$.condition.length;++i) {
+				var c = elm.$.condition[i];
+				var ops = { 
+					field: new_node[env.isMulti(elm) ? c.point : c.target],//table_node - new node
+					value: current_node[env.isMulti(elm) ? c.target : c.point]}//this.parent - current node);
+				if(c.value)
+					ops.rawvalue = (c.value === "?" ? params[p++] : c.value);
+				link.push(ops);
+			}
+			return link;
+		},
+		makeOps: function(cont, table_node, rel_params) {
+			if(cont.$.condition)
+				table_node.linkops = X.modelBuilder.makeOperands(cont, cont.parent, table_node, rel_params);
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
 					for(var j in rel.joins) { //it's rel params
-						var target_node = rel.joins[j];
-						target_node.condition = 
-							X.modelBuilder.makeCondition(target_node, rel.$.condition, table_node, j);
-						this.makeRels(target_node);
+						this.makeOps(rel, rel.joins[j], j);
+					}
+				}
+			}
+		},
+		makeRelKeys: function(table_node) {
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						var ops = rel.joins[j].linkops;
+						var kv = null;
+						for(var i=0;i<ops.length;++i) {
+							var v = ops[i].value
+							if(v && env.boundAsUpdatable(v)) {
+								(kv = kv || {})[v.$.name] = v;
+							}
+						}
+						table_node.relkey = kv && new X.Select.rel_key(kv);
+						this.makeRelKeys(rel, rel.joins[j], j);
+					}
+				}
+			}
+		},
+		makeRels:function(container, table_node, rel_params) {
+			this.makeLink(container, table_node, rel_params);
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						this.makeRels(rel, rel.joins[j], j);
 					}
 				}
 			}
@@ -168,35 +221,10 @@
 					elem.sendToServer = function() { this.key.sendToServer(this); }
 					env.convertToUpdatable(elem);
 				}
-				
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
 					for(var j in rel.joins)
 						this.makeUpdatables(rel.joins[j]);
-				}
-			}
-		},
-		makeWheresLinks:function(table_node){
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel && env.isMulti(rel) && env.used(rel)) {
-					rel.link = ko.computed(function() {
-						var link = [];
-						var conds = this.$.condition;
-						for(var i=0;i<conds.length;++i) {
-							var f = table_node[conds[i].here];
-							var v = f();//subscribe to key link fields anyway (refresh need key)
-							if(rel.defer)
-								link.push(v)
-							else
-								link.push({field:X.sql.node(f)});
-						}
-						return link;
-					}, rel);
-				}
-				else if(rel && rel.joins) {
-					for(var j in rel.joins) 
-						this.makeWheresLinks(rel.joins[j]);
 				}
 			}
 		},
@@ -206,20 +234,21 @@
 			// T1->T2->T3
 			// T1 left join (T2 left join T3 on T3.rid = T2.rel) on T2.rid=T1.rel
 			// it's returned as [T1:null [T2(T2.rid=T1.rel) T3(T3.rid = T2.rel)]]
+			var test_nodes = [];
+			for(var i in table_node) {
+				var elem = table_node[i];
+				if(elem && elem.auto && env.used(elem) ) {
+					var test = { parent: elem, node: X.modelBuilder.appendElement(elem) };
+					var sql = X.sql.makeSelect(test.node);
+					used.push({node: table_node, elem: elem, select: sql });
+					test_nodes.push(test);
+				}
+			}
 			
 			for(var i in table_node) {
 				var elem = table_node[i];
-				if(elem && env.isMulti(elem)) {
-					if(elem.link && elem.auto) {
-						var select = X.sql.makeSelect(elem, elem.$$);
-						used.push({node: table_node, elem: elem, 
-							select: select.sql });
-						elem.remove(select.test_node);
-					}
-				}
-				else
-					if(elem && env.used(elem))
-						used.push({node: table_node, elem: elem});
+				if(elem && env.used(elem) && !env.isMulti(elem))
+					used.push({node: table_node, elem: elem});
 				var rel = elem;
 				if(rel && rel.joins) { //it's rel
 					for(var j in rel)
@@ -229,6 +258,9 @@
 						this.collectUsage(rel.joins[j], used);
 				}
 			}
+			//removing test nodes
+			for(var i=0;i<test_nodes.length;++i)
+				test_nodes[i].parent.remove(test_nodes[i].node);
 		}
 	}
 	return res;
