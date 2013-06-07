@@ -1,6 +1,5 @@
 ﻿<?php
 ini_set('display_errors', 'On');
-
 //----------------------
 define ("LOG_ERR_COMM","ERR_COM");
 define ("LOG_ERR_SYS","ERR_SYS");
@@ -30,7 +29,6 @@ else print_r("ERRRR!!!");
 //===================================================
 require_once 'right.php';
 //===================================================
-
 function testUTF($tst)
 {
 	$tstutf='{"txt":"'.$tst.'"}';
@@ -64,7 +62,6 @@ function logMsg($txt,$type="",$data=null,$errcode=-1,$count=0)
 	}
 	if ($type==LOG_ERR_SYS) $jresult['errors']['system'][]=array(MSG_TXT=>$txt,MSG_ERR_CODE=>$errcode);
 	if ($type==LOG_PRINT) $jresult['echo'][]=$txt;
-
 }
 //-------- save and exit ---
 function endScript($isbin=false)
@@ -188,7 +185,6 @@ function getFilePath($name)
 //====================================================
 //                  END OF FUNCTIONS
 //====================================================
-
 $jdata=null;
 if (isset($_SERVER['HTTP_CONTENT_TYPE']))
 {
@@ -206,8 +202,7 @@ if (isset($_SERVER['HTTP_CONTENT_TYPE']))
 				logMsg("SQL body not found.",LOG_ERR_SYS);endScript();
 			}
 			$jdata=json_decode($_POST['sqlboby'],true);
-		}
-			
+		}			
 	}
 	else
 	{
@@ -223,24 +218,7 @@ if ($jdata==NULL){
 $tmpvar=null;
 
 try
-{	
-	//PDO::ATTR_PERSISTENT => true - кэширование сессии DB
-	//PDO::ATTR_ORACLE_NULLS=>PDO::NULL_TO_STRING - null -> ""
-	/*
-	if ($dbtype=="mssql" || $odbc_use==true)
-	{
-		$dsn="odbc:Driver={".$odbcdrv."};Server=".$odbcsrv.";Database=".$dbname.";Uid=".$dbuser.";Pwd=".$dbpass;
-		//$dsn="odbc:Driver={SQL Server};Server=SHUMSKY-XC-O3\SQLEXPRESS;Database=tst;Uid=puser;Pwd=1";
-		$db=new PDO($dsn);
-		$db->setAttribute (PDO::ATTR_ORACLE_NULLS,PDO::NULL_TO_STRING);
-	}
-	else
-	{
-		if ($dbtype!="sqlite") $dsn="$dbtype:host=$dbhost;port=$dbport;dbname=$dbname";
-		else $dsn="$dbtype:$dbhost";
-		$db = new PDO($dsn,$dbuser,$dbpass,array(PDO::ATTR_PERSISTENT => true,PDO::ATTR_ORACLE_NULLS=>PDO::NULL_TO_STRING));
-	}
-	*/
+{
 	$db=get_connection(null);
 	if ( $db)
 	{
@@ -278,7 +256,7 @@ try
 			}
 			try
 			{
-				$stmt=make_command($dat,'sam',$db);
+				$stmt=make_command($dat,'sam',$db);				
 				$num=1;
 				foreach ($dat[JS_LINK] as $ldat)
 				{
@@ -287,7 +265,7 @@ try
 				}			
 				if (!($stmt->execute()))
 				{
-					logMsg("Exec err.".$stmt->errorInfo()[2],LOG_ERR_COMM,$dat,$stmt->errorInfo()[0]);
+					logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$dat,$stmt->errorInfo()[0]);
 					//print_r($stmt->queryString);
 				}
 				else 
@@ -299,8 +277,8 @@ try
 			}
 			catch(Exception $ex)
 			{
-				echo $ex->getMessage();
-			}				
+				logMsg("Error. ".$ex->getMessage(),LOG_ERR_COMM,$dat,$ex->getCode());
+			}							
 		}
 	}
 	else logMsg("DB error!",LOG_ERR_SYS);

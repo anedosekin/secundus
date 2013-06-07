@@ -315,6 +315,7 @@ function make_command(&$cmd, $composed_roles,$dbh) {
   
 	   });
 */
+  $command_cache[$cache_key] = $dbh->prepare($composed_comand);
   return $command_cache[$cache_key] = $dbh->prepare($composed_comand);
 }
 
@@ -473,16 +474,18 @@ function get_connection($table){
   static $connections = array();
   $db = array_key_exists($table, $main_cfg) ? $table : 'default_db';
   if(!@$connections[$db]) {
-    $params = $main_cfg[$db];
-    
-    $connections[$db] = new PDO("{$params['server']}",$params['user'],$params['pass']);
-    $connections[$db]->dialect = $params['dialect'];
-    if ($params['dialect']=="mssql") $connections[$db]->setAttribute (PDO::ATTR_ORACLE_NULLS,PDO::NULL_TO_STRING);
-    
+    $params = $main_cfg[$db];    
+    //PDO::ATTR_PERSISTENT => true - кэширование сессии DB, работает только при создании объекта!!!
+    //PDO::ATTR_ORACLE_NULLS=>PDO::NULL_TO_STRING - null -> ""
+    $addparams=array(PDO::ATTR_PERSISTENT => true);
+   	$connections[$db] = new PDO("{$params['server']}",$params['user'],$params['pass'],$addparams);
+   	$connections[$db]->dialect = $params['dialect'];
+   	$connections[$db]->setAttribute (PDO::ATTR_ORACLE_NULLS,PDO::NULL_TO_STRING);
+   	$connections[$db]->setAttribute (PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);// exceptions for all errors
+   	
   }
   return $connections[$db];
 }
-
 
 //var_dump(collect_rights_param('table1.field1', RIGHTS_READ, 'sam'));
 /*
