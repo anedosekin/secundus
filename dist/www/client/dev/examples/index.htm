@@ -21,6 +21,9 @@
 #add_city_record {
 	padding:2em;
 }
+INPUT {
+width:6em;
+}
 </style>
 </head>
 <body onload="Init();">
@@ -49,11 +52,11 @@
 <table>
 <thead></thead>
 <tbody data-bind="foreach:streets">
-	<tr><td data-bind="text:street_name"><td data-bind="text:city_id.value"><td data-bind="text:street_population"><td data-bind="text:city_id().country.value"><td data-bind="text:city_id().city_name">
-	<td><input data-bind="value:street_name"><td><input data-bind="value:city_id.value"><td><input data-bind="value:street_population"><td><input data-bind="value:city_id().country.value"><td><input data-bind="value:city_id().city_name">
+	<tr><td><input data-bind="value:mail_service.value"><td><input data-bind="value:mail_service().building().street_name.value"><td data-bind="text:street_population"><td data-bind="text:city_id().country.value"><td data-bind="text:city_id().city_name">
+	<td><input data-bind="value:street_name"><td><input data-bind="value:city_id.value"><td><input data-bind="value:street_population"><td><input data-bind="value:city_id().country.value"><td><input data-bind="value:city_id().city_name"><button data-bind="click:destroy">delete</button>
 </tbody>
 </table>
-<p><button data-bind="click:streets.addNewLine">Добавить</button></p>
+<p><button data-bind="click:streets.addNewLine">Добавить</button><button data-bind="click:streets.refresh">Обновить</button></p>
 </div>
 <pre id="json" style="background-color:lightgreen"></pre>
 <pre id="jsonpaste"></pre>

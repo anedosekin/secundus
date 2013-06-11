@@ -15,7 +15,7 @@
 		for(i = 0; i < DBQueue.cmds.length; ++i) {
 			var qe = DBQueue.cmds[i];
 			var to_send = { 
-					table: qe.keyObject.$$.name, 
+					table: qe.keyObject.node.$$.name, 
 					key: qe.keyObject.DBKeyValue,
 					oid: X.OID(qe.keyObject) 
 					}
@@ -51,7 +51,7 @@
 			if(elm.key._destroy)
 				qe.objects = null;
 			
-			if(qe.objects && env.isChanged(elm)) { //if not destroyed!
+			if(qe.objects/* && env.isChanged(elm)*/) { //if not destroyed!
 				qe.objects[elm.$.name] = elm;
 			}
 		}
@@ -87,9 +87,11 @@
 					for(var i in values) {
 						var obj = objs[t].objects[i];
 						if(obj) {
-							env.dbvalue(obj)(values[i]); //from server!!!! cids translated there!!!
+							obj = env.oko(obj);
+							obj.dbvalue(values[i]); //from server!!!! cids translated there!!!
 							if(env.isChanged(obj))
-								env.write(obj, env.dbvalue(obj)); //if server change value
+								env.write(obj, obj.dbvalue()); //if server change value
+							obj.sync( true );
 						} else {
 							//server send new value, but does't ask it to change
 						}
@@ -98,10 +100,11 @@
 					//DBKeyValue has db values
 					var k = {};
 					for(var i in c.values) //loop in keyObject
-						k[c.values[i].$.name] = env.dbvalue(c.values[i])(); //new DBValue here!
+						k[c.values[i].$.name] = c.values[i].dbvalue(); //new DBValue here!
 					c.DBKeyValue = k;
 				} else {
 					//delete
+					c.container.remove(c.node);
 					c.DBKeyValue = null; //clear key value from deleted records
 				}
 			} else {
@@ -124,18 +127,12 @@
 			finally { this.unlockSending(); } 
 		},
 		
-		key: function(DBTableDescr, vals) { // получает { value: KO }
-			this.$$ = DBTableDescr;
+		key: function(cont, table_node, vals) { // получает { value: KO }
+			this.container = cont;
+			this.node = table_node;
 			//this.DBValue = undefined; //TODO: calc it when we read object from server, and set ready = true
 			this.values = vals; //to make DBKeyValue and to trace changes in key 
 			this.pended_changes = {}; // objects; pended_changes === null when ready
-			this.reload = function() {
-				var where = [];
-				for(var i in this.values) {
-					where.push({field:this.values[i],value:this.values[i]()});
-				}
-				
-			}
 			this.ready = ko.computed(function() {
 				var k = {};
 				var insert_key = true;
@@ -143,7 +140,7 @@
 					var v = env.read(this.values[i]);
 					if(X.isEmpty(v)) return false;
 					if(this.values[i].$.pk) {
-						v = env.dbvalue(this.values[i])();
+						v = this.values[i].dbvalue();
 						if(!X.isEmpty(v)) //if all dbvalues of key is empty, then insert
 							insert_key = false;
 					}
@@ -159,17 +156,15 @@
 				return true;
 			}, this);
 			this.sendToServer = function(elm) {
-				if(env.isChanged(elm)) {//changed
-					if(this.pended_changes) { // save in pended changes, if key is not ready
-						this.pended_changes[elm.$.name] = elm; //unique!
-					} else {
-						X.Upserte.toServer(elm);
-					}
+				if(this.pended_changes) { // save in pended changes, if key is not ready
+					this.pended_changes[elm.$.name] = elm; //unique!
+				} else {
+					X.Upserte.toServer(elm);
 				}
 			}
 			return this;
 		},
-		new_key: function(DBTableDescr, vals) { return new this.key(DBTableDescr, vals); }
+		new_key: function(cont, table_node, vals) { return new this.key(cont, table_node, vals); }
 		
 		//TODO: move to prototype
 		//array: 1) combo items -> filled in filter -> so in select when data come 
@@ -183,14 +178,15 @@ X.Select = (function(env) {
 		for(var i=0;i<response.length;++i) {
 			var com = response[i];
 			if(com.SUCCESS) {
+				var data = com.RESULTSET;
 				if(env.isMulti(elm)) {
 					elm.removeAll();
-					env.writeArray(elm, com.RESULTSET);
+					env.writeArray(elm, data.length ? data : null);
 				}
 				else {
-					if(com.RESULTSET.length != 1) 
+					if(data.length > 1) 
 						env.writeSelectError( elm, JSON.stringify(com) );
-					env.writeRecord(elm, com.RESULTSET[0]);
+					env.writeRecord(elm, data.length ? data[0] : null);
 				}
 			} else {
 				env.writeSelectError( elm, JSON.stringify(com) );
@@ -212,26 +208,37 @@ X.Select = (function(env) {
 	}
 	function rel_key(kv) {
 		this.key = kv;
-		this.changed = ko.computed(function() {
-			var all_changed = true;
+		//rel key field is subcribed via edit using
+		this.sync = ko.computed(function() {
+			var synced = true;
 			for(var i in this.key) {
-				var v = env.read(this.key[i]);//subscription
-				if(env.isChanged(this.key[i]))
-					this.key[i].changed = true;
-				if(!this.key[i].changed) 
-					all_changed = false;
+				var elm = env.oko(this.key[i]);
+				synced &= elm.sync() && elm.edited ;//subcribtion to sync changes
 			}
-			if(!all_changed) return false;
+			if(!synced) 
+				return false;
+			var clear_rel = true;
 			for(var i in this.key)
-				delete this.key[i].changed;
-			for(var i in this.key) 
-				if(this.key[i].value) {
-					var c = this.key[i];
-					for(var j in c.joins) {
-						var sql = X.sql.makeSelect(c.joins[j]);
-						X.Select.sendQuery(c.joins[j], sql);
+				if(!X.isEmpty(env.oko(this.key[i]).peek()))
+					clear_rel = false;
+			if(clear_rel) {
+				for(var i in this.key)
+					if(this.key[i].joins) {
+						var c = this.key[i];
+						for(var j in c.joins) {
+							env.writeRecord(c.joins[j] ,null);
+						}
 					}
-				}
+			} else {
+				for(var i in this.key)
+					if(this.key[i].joins) {
+						var c = this.key[i];
+						for(var j in c.joins) {
+							var sql = X.sql.makeSelect(c.joins[j]);
+							X.Select.sendQuery(c.joins[j], sql);
+						}
+					}
+			}
 			return true;
 		}, this);
 	}

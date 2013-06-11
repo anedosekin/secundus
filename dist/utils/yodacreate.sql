@@ -36,11 +36,23 @@ CREATE TABLE streets
   street_name character varying NOT NULL,
   city_id numeric NOT NULL,
   street_population numeric,
+  mail_service character varying,
   CONSTRAINT pkstreets PRIMARY KEY (city_id, street_name)
 )
 WITH (
   OIDS=FALSE
 );
+
+CREATE TABLE mailoffices
+(
+  office_name character varying NOT NULL,
+  building numeric,
+  CONSTRAINT mailofficespk PRIMARY KEY (office_name)
+)
+WITH (
+  OIDS=FALSE
+);
+
 
 ALTER TABLE countries
   OWNER TO serious;
@@ -135,6 +147,9 @@ INSERT INTO buildings(street_name, city_id, id, building_number) VALUES ('Сно
 INSERT INTO buildings(street_name, city_id, id, building_number) VALUES ('Конгресс-стрит', 12, 30, 4);
 INSERT INTO buildings(street_name, city_id, id, building_number) VALUES ('Дерн-стрит', 12, 31, 4);
 
+INSERT INTO mailoffices(office_name, building) VALUES ('№1', 1);
+INSERT INTO mailoffices(office_name, building) VALUES ('№2', 2);
+INSERT INTO mailoffices(office_name, building) VALUES ('№3', 3);
 
 ALTER TABLE cities ADD CONSTRAINT fkcountry FOREIGN KEY (country)
       REFERENCES countries (country_name) MATCH SIMPLE
@@ -145,3 +160,10 @@ ALTER TABLE buildings ADD CONSTRAINT fkstreets FOREIGN KEY (city_id, street_name
 ALTER TABLE streets ADD CONSTRAINT fkcity FOREIGN KEY (city_id)
       REFERENCES cities (id) MATCH SIMPLE
       ON UPDATE CASCADE ON DELETE NO ACTION;
+ALTER TABLE streets ADD CONSTRAINT fkmailoffice FOREIGN KEY (mail_service)
+      REFERENCES mailoffices (office_name) MATCH SIMPLE
+      ON UPDATE CASCADE ON DELETE NO ACTION;
+ALTER TABLE mailoffices ADD CONSTRAINT fkmailbuilding FOREIGN KEY (building)
+      REFERENCES buildings (id) MATCH SIMPLE
+      ON UPDATE CASCADE ON DELETE NO ACTION;
+  

@@ -1,43 +1,41 @@
 ﻿X.DBdefaultEnv = {
 	//elm - observable
 	//read from observable
-	peek: function(elm) { return elm.value ? elm.value.peek() : elm.peek(); },
-	read: function(elm) { return elm.value ? elm.value() : elm(); },
-	dbvalue: function(elm) { return elm.value ? elm.value.DBValue : elm.DBValue },
+	oko:function(elm) { return elm.joins ? elm.value : elm },
+	peek: function(elm) { return elm.peek() },
+	read: function(elm) { return elm() },
 	//write to observable or observableArray
-	write:function(elm, value) {
-		(elm.joins ? elm.value : elm)(value);
-	},
-	writeFromDB:function(elm, value) {
-		this.dbvalue(elm)(value);
-		this.write(elm, value);
-	},
+	write:function(elm, value) { elm(value) },
 	writeRecord: function(node, value) {
-		var i = 0;
 		var usage = [];
 		X.modelBuilder.collectUsage(node, usage);
-		for(var j in value) {
-			//TODO: server answer value length may be greater than usage. should check it and alert
-			var data = value[j];
-			var elem = usage[i].elem;
+		if(value && usage.length!=value.length) 
+			return this.writeSelectError('unused data from select');
+		//TODO: server answer value length may be greater than usage. should check it and alert
+		for(i = 0;i < usage.length; ++i) {
+			var elem = this.oko(usage[i].elem);
+			var data = value ? value[i] : "";
 			if(this.isMulti(elem)) {
 				this.writeArray(elem, data);
 			} else {
-				this.writeFromDB(elem, data);
+				data = X.isEmpty(data) ? "" : data;
+				elem.dbvalue(data);
+				this.write(elem, data);
+				elem.sync( true );
 			}
-			i++;
 		}
 		node.ready(true);
 	},
 	writeArray: function(container, value) {
-		for(var i = 0;i < value.length;++i) {
-			var node = X.modelBuilder.appendElement(container);
-			this.writeRecord(node, value[i]);
-		}
+		if(value)
+			for(var i = 0;i < value.length;++i) {
+				var node = X.modelBuilder.appendElement(container);
+				this.writeRecord(node, value[i]);
+			}
 		container.ready(true);
 	},
 	isChanged:function(elm) {
-		return this.peek(elm) !== this.peek(this.dbvalue(elm));
+		return this.peek(elm) !== this.peek(elm.dbvalue);
 	},
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
@@ -49,21 +47,27 @@
 	},
 	//check if this observable bound to input or can be changed somehow else
 	boundAsUpdatable: function(elm) { 
-		return elm.value ? elm.value.boundAsUpdatable : elm.boundAsUpdatable 
+		return elm.joins ? elm.value.boundAsUpdatable : elm.boundAsUpdatable 
 	},
 	//make observable with name in container using fielddef as description
 	makeElement: function(container, name, fielddef) {
 		var c = container[name] = ko.observable();
 		c.$ = fielddef;
-		c.parent = container;
-		c.DBValue = ko.observable();
+		c.parent = container.joins ? container.parent : container;
+		c.dbvalue = ko.observable();
+		c.sync = ko.observable( false );//sync with db
+		c.edited = false;
 	},
 	isMulti:function(elm) {return elm.addNewLine },
 	//convert element (made with makeElement) to writable one (which is able to send itself to server)
 	convertToUpdatable: function(elm) {
 		elm.subscribe(function() {
-			elm.sendToServer();
-		});
+			if(this.isChanged(elm)) {
+				elm.edited = true;
+				elm.sync( false );
+				elm.sendToServer();
+			}
+		}, this);
 	},
 	//make relation, eq rel() = X.modelBuilder.traverseRel
 	// but with additionals members
@@ -75,6 +79,7 @@
 			c.$$ = fielddef.target;
 			c.parent = container;
 			X.DBdefaultEnv.makeElement(c, 'value', fielddef); //observable = rel value (as field value)
+
 			/*c.refresh = function() {
 				for(var i in c.joins) {
 					var sql = X.sql.makeSelect(c.joins[i]);

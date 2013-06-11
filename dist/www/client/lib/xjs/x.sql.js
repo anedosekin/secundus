@@ -99,7 +99,10 @@ var rez = {
 				var field = {};
 				field[i] = '?';
 				sql.FIELDS.push(field);
-				sql.LINK.push(object.values[i]);
+				if(X.isEmpty(object.values[i]))
+					sql.LINK.push(null);
+				else
+					sql.LINK.push(object.values[i]);
 			}
 			sql.TYPE = object.key ? 'UPDATE' : 'INSERT';
 		}
@@ -108,10 +111,10 @@ var rez = {
 			if(!object.values) 
 				sql.TYPE = 'DELETE';
 		}
-		console.log(JSON.stringify(sql));
 		return sql;
 	},
 	valuesFromUpdate: function(com) {
+		if(!com.FIELDS) return;
 		var vals = {};
 		for(var i=0;i<com.FIELDS.length;++i) {
 			var fld = com.FIELDS[i];

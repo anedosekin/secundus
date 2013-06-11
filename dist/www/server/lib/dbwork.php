@@ -270,7 +270,7 @@ try
 				}
 				else 
 				{					
-					if ($dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$stmt->fetchAll(PDO::FETCH_ASSOC);
+					if ($dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$stmt->fetchAll(PDO::FETCH_NUM);
 					logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
 					//print_r($stmt->queryString);					
 				}				
