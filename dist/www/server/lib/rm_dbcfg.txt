@@ -1,0 +1,40 @@
+mysql
+$main_cfg = array(
+		  'cache' => array( 'timeout' => 1, 'local' => true ),
+		  'default_db' => array(
+					'dialect' => 'mysql',
+					'server'=>'mysql:host=localhost;port=3306;dbname=test;',
+					'user' => 'puser',
+					'pass' => '1',
+					)
+		  );
+mssql odbc
+$main_cfg = array(
+		  'cache' => array( 'timeout' => 1, 'local' => true ),
+		  'default_db' => array(
+					'dialect' => 'mssql',
+					'server'=>'odbc:Driver={SQL Server};Server=SHUMSKY-XC-O3\SQLEXPRESS;Database=tst;Uid=puser;Pwd=1;',
+					'user' => '',
+					'pass' => '',
+					)
+		  );
+pgsql
+$main_cfg = array(
+		  'cache' => array( 'timeout' => 1, 'local' => true ),
+		  'default_db' => array(
+					'dialect' => 'pgsql',
+					'server'=>'pgsql:host=katia;port=5433;dbname=yoda',
+					'user' => 'serious',
+					'pass' => '1',
+					)
+		  );
+Oracle
+$main_cfg = array(
+		  'cache' => array( 'timeout' => 1, 'local' => true ),
+		  'default_db' => array(
+					'dialect' => 'oci',
+					'server'=>'oci:host=127.0.0.1;port=1521;dbname=XE',
+					'user' => 'puser',
+					'pass' => '1',
+					)
+		  );
