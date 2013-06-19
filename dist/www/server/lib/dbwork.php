@@ -111,7 +111,8 @@ function prepearDB(&$db)
 	if ($dbtype=="oci")
 	{
 		$db->exec ("ALTER SESSION SET NLS_CALENDAR='Gregorian'");
-		$db->exec ("ALTER SESSION SET NLS_LANG='ENGLISH_UNITED KINGDOM.UTF8'"); // RUSSIAN_CIS // AMERICAN_AMERICA
+		// NLS_LANG задается передается через переменные среды 
+		//$db->exec ("ALTER SESSION SET NLS_LANG='ENGLISH_UNITED KINGDOM.UTF8'"); // RUSSIAN_CIS // AMERICAN_AMERICA
 		$db->exec ("ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD'");
 		$db->exec ("ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS'");
 		$db->exec ("ALTER SESSION SET TIME_ZONE='UTC'");
