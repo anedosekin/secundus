@@ -5,7 +5,7 @@
 		}
 	var res =
 	{
-		tableNode: function(tableObject, container) {
+		tableNode: function(tableObject, container, rel_params) {
 			var self = this;
 			self.$$ = tableObject;
 			//self.parent = function() { return container }
@@ -45,53 +45,46 @@
 					self.key.container.remove(self);
 				}
 			}
-			self.ready = ko.observable(false);
-			self.cleanNode = function() {
-				for(var i in self) {
-					
-				}
-			}
-			/*self.ready = ko.computed(
-			{
-				'read':function() {
-					return self._ready();
-				},
-				'write':function(val) {
-					self._ready(val);
-					for(var i in self) {
-						var rel = self[i];
-						if(rel && rel.joins) {
-							for(var j in rel.joins) { //it's rel params
-								var node = rel.joins[j];
-								node.ready(val);
-							}
-						}
-					}
-				}
-			});
-			*/
-			/*
-			self.destroyElement = function() {
-				//elm.destroyElement = function(to_destroy) { 
-				//	this.destroy(to_destroy);
-				//	to_destroy.key._destroy = true;
-				//	to_destroy.sendToServer();
-				//}
-				console.log(this);
-				self.key._destroy = true;
-				self.key.sendToServer(self);
-				if(self.parent() && env.isMulti(self.parent())) {
-					self.parent().remove(self);
-				}
-			}
-			*/
+			//self.ready = ko.observable(false);
+			X.modelBuilder.makeOps(container, self, rel_params);
 			return this;
 		},
 		traverseRel: function() {
 			var key = Array.prototype.join.call(arguments,":") || "";
 			//table linked with rel //rel itself
 			return this.joins[key] ||
-				(this.joins[key] = new X.modelBuilder.tableNode(this.$$, this));
+				(this.joins[key] = new X.modelBuilder.tableNode(this.$$, this, key));
+		},
+		makeOperands:function(elm, current_node, new_node, rel_params) {
+			var link = [];
+			var p = 0;
+			var params = rel_params && rel_params.split(':');
+			for(var i=0;i<elm.$.condition.length;++i) {
+				var c = elm.$.condition[i];
+				var ops = { 
+					field: new_node[env.isMulti(elm) ? c.point : c.target],//table_node - new node
+					value: current_node[env.isMulti(elm) ? c.target : c.point]}//this.parent - current node);
+				
+				if(c.value) {//rawvalue
+					ops.rawvalue = (c.value === "?" ? params[p++] : c.value);
+					link.valuable = true;
+				}
+				env.oko(ops.value || ops.field).within[elm.$.name] = elm;//knowledge for fields of relations
+				link.push(ops);
+			}
+			return link;
+		},
+		makeOps: function(cont, table_node, rel_params) {
+			if(cont.$.condition)
+				table_node.linkops = X.modelBuilder.makeOperands(cont, cont.parent, table_node, rel_params);
+			for(var i in table_node) {
+				var rel = table_node[i];
+				if(rel && rel.joins) { //it's rel
+					for(var j in rel.joins) { //it's rel params
+						this.makeOps(rel, rel.joins[j], j);
+					}
+				}
+			}
 		},
 		appendElement: function(cont) {
 			var table_node = new X.modelBuilder.tableNode(cont.$$, cont);
@@ -99,11 +92,10 @@
 			if(env.isMulti(cont))
 				cont.push(table_node);
 			else
-				cont[def.name] = table_node;
+				cont = table_node;//TODO: develop this moment
 
 			this.makeAliases(table_node);
 			this.makeUpdatables(cont, table_node);
-			this.makeOps(cont, table_node);
 			this.makeRels(cont, table_node);
 			this.makeRelKeys(table_node);
 			return table_node;
@@ -129,75 +121,50 @@
 				//table_node - new node
 				//this.parent - current node
 				for(var i=0;i<ops.length;++i) {
-					var fld = env.oko(ops[i].field)
-					var val = env.oko(ops[i].value)
+					var o_fld = env.oko(ops[i].field)
+					var o_val = ops[i].value ? env.oko(ops[i].value) : null
 					var raw = ops[i].rawvalue
 					var value = null;
 					//value calculation and subscription
 					if(env.isMulti(this)) {
-						value = env.read(val);//always subscribe
+						if(!o_val) 
+							throw "Error: array is built on backrel with parametrised condition";
+						value = env.read(o_val);//always subscribe
 						//TODO:subscribe if updatables, other way - peek
 					} else {
-						value = raw ? raw : env.peek(val);//no subcription. those subscriptions in updatables
+						value = o_val ? env.peek(o_val) : raw;//no subcription. those subscriptions in updatables
 					}
-					if( raw!==undefined || val.sync() ) {
-						if(X.isEmpty(value))
-							where.push( X.sql.node(fld) +" IS NULL");
-						else {
-							where.push( X.sql.node(fld) +"=?");
-							link.push( value );
-						}
-					} else {
+					if( o_val && !o_val.sync() ) {
 						//join and where differences
 						if(env.isMulti(this)) {
-							where.push( X.sql.node(fld) +"=?");
-							link.push({ field: X.sql.node(val) });
+							where.push( X.sql.node(o_fld) +"=?");
+							link.push({ field: X.sql.node(o_val) });
 						} else
-							where.push( X.sql.node(fld) +"="+ X.sql.node(val));
+							where.push( X.sql.node(o_fld) +"="+ X.sql.node(o_val));
+					} else {
+						//edited || sync()
+						if(X.isEmpty(value))
+							where.push( X.sql.node(o_fld) +" IS NULL");
+						else {
+							where.push( X.sql.node(o_fld) +"=?");
+							link.push( value );
+						}
 					}
 				}
 				table_node.where = where.join(" AND ");
 				return link;
 			}, container);
 		},
-		makeOperands:function(elm, current_node, new_node, rel_params) {
-			var link = [];
-			var p = 0;
-			var params = rel_params && rel_params.split(':');
-			for(var i=0;i<elm.$.condition.length;++i) {
-				var c = elm.$.condition[i];
-				var ops = { 
-					field: new_node[env.isMulti(elm) ? c.point : c.target],//table_node - new node
-					value: current_node[env.isMulti(elm) ? c.target : c.point]}//this.parent - current node);
-				
-				if(c.value)
-					ops.rawvalue = (c.value === "?" ? params[p++] : c.value);
-				link.push(ops);
-			}
-			return link;
-		},
-		makeOps: function(cont, table_node, rel_params) {
-			if(cont.$.condition)
-				table_node.linkops = X.modelBuilder.makeOperands(cont, cont.parent, table_node, rel_params);
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel && rel.joins) { //it's rel
-					for(var j in rel.joins) { //it's rel params
-						this.makeOps(rel, rel.joins[j], j);
-					}
-				}
-			}
-		},
 		generateRelKey:function(table_node) {
 			if(table_node.relkey) return table_node.relkey;
 			var kv = null;
 			for(var i=0; i < table_node.linkops.length; ++i) {
-				var v = table_node.linkops[i].value;
-				if(v && env.boundAsUpdatable(v)) {
+				var v = table_node.linkops[i].value || table_node.linkops[i].field;
+				if(v && env.boundAsUpdatable(env.oko(v))) {
 					(kv = kv || {})[v.$.name] = v;
 				}
 			}
-			return table_node.relkey = kv && new X.Select.rel_key(kv);
+			return table_node.relkey = kv && X.Select.new_key(kv);
 		},
 		makeRelKeys: function(table_node) {
 			for(var i in table_node) {
@@ -206,9 +173,9 @@
 					for(var j in rel.joins) { //it's rel params
 						var ops = rel.joins[j].linkops;
 						for(var i=0;i<ops.length;++i)
-							if(ops[i].value)
-								ops[i].value.relkey = this.generateRelKey(rel.joins[j]);
-						this.makeRelKeys(rel, rel.joins[j], j);
+							//if(ops[i].value)
+								(ops[i].value || ops[i].field).relkey = this.generateRelKey(rel.joins[j]);
+						this.makeRelKeys(rel.joins[j]);
 					}
 				}
 			}
@@ -228,20 +195,17 @@
 			if(table_node.key) return table_node.key;
 			var kv = {}
 			for(var i in table_node) {
-				var elem = table_node[i];
+				var elem = table_node[i] && env.oko(table_node[i]);
 				if(elem && elem.$ && elem.$.pk)
 					kv[elem.$.name] = elem;
-				if(elem && elem.value && elem.value.$.pk)
-					kv[elem.value.$.name] = elem.value;
 			}
 			return table_node.key = X.Upserte.new_key(cont, table_node, kv);
 			//TODO: subscibe to changes
 		},
 		makeUpdatables: function(cont, table_node) {
 			for(var i in table_node) {
-				var elem = table_node[i];
+				var elem = table_node[i] && env.oko(table_node[i]);
 				if(elem && env.boundAsUpdatable(elem)) {
-					elem = elem.value || elem;
 					elem.key = this.generateKeyObject(cont, table_node);
 					elem.sendToServer = function() {
 						this.key.sendToServer(this);
@@ -255,6 +219,7 @@
 				}
 			}
 		},
+		//TODO:collectHeaders
 		collectUsage: function(table_node, used) {
 			//here we have condition for this node
 			//we should right(!) associate joins under relations

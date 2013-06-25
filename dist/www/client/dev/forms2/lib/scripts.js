@@ -1013,10 +1013,11 @@ table def
 				caption: string
 				caption_combine: string
 
+				control: html text
+
 				min, max, re, 
 				base: field ( given field(param) is a base value for this field, so it's should be greater, may be it's the same as min with expr)
 
-				control: html text
 				validator: function(value) {}
 
 				strip_spaces: bool

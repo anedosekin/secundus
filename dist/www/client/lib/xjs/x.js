@@ -70,6 +70,9 @@ X.throttle = function(func, wait) {
 		return result;
 	};
 };
+X.alert = function(t) {
+	alert(t);
+}
 X.OID = (function() { var oid = 0; 
 	return function(obj) { return obj.oid || (obj.oid = "-" + ++oid); }
 })();

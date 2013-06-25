@@ -266,13 +266,13 @@ try
 				if (!($stmt->execute()))
 				{
 					logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$dat,$stmt->errorInfo()[0]);
-					//print_r($stmt->queryString);
+					print_r($stmt->queryString);
 				}
 				else 
 				{					
 					if ($dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$stmt->fetchAll(PDO::FETCH_NUM);
 					logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
-					//print_r($stmt->queryString);					
+					print_r($stmt->queryString);					
 				}				
 			}
 			catch(Exception $ex)

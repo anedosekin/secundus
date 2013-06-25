@@ -46,7 +46,7 @@ var rez = {
 		}
 		return rez.join(' AND ');
 	},
-	makeSelect: function(table_node) {
+	makeSelect: function(table_node, oid) {
 		/*
 		statement=
 		{
@@ -60,8 +60,9 @@ var rez = {
 		}
 		*/
 		//link патчит значениями и полями все '?' в своём запросе
-
 		var sql = { TYPE:'SELECT', FIELDS:[], FROM:'' ,WHERE:[], LINK: [] };
+		if(oid) 
+			sql.oid = oid;
 		//fields
 		var fields = [];
 		X.modelBuilder.collectUsage(table_node, fields);

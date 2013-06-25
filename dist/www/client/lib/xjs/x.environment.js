@@ -1,7 +1,7 @@
 ﻿X.DBdefaultEnv = {
 	//elm - observable
 	//read from observable
-	oko:function(elm) { return elm.joins ? elm.value : elm },
+	oko:function(elm) { return elm.joins ? elm._value : elm },
 	peek: function(elm) { return elm.peek() },
 	read: function(elm) { return elm() },
 	//write to observable or observableArray
@@ -24,7 +24,7 @@
 				elem.sync( true );
 			}
 		}
-		node.ready(true);
+		//node.ready(true);
 	},
 	writeArray: function(container, value) {
 		if(value)
@@ -32,7 +32,7 @@
 				var node = X.modelBuilder.appendElement(container);
 				this.writeRecord(node, value[i]);
 			}
-		container.ready(true);
+		container.sync(true);
 	},
 	isChanged:function(elm) {
 		return this.peek(elm) !== this.peek(elm.dbvalue);
@@ -46,25 +46,40 @@
 		return elm.$ && elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
 	},
 	//check if this observable bound to input or can be changed somehow else
+	makeUpdatable:function(elm) {
+		elm.boundAsUpdatable = true;
+	},
 	boundAsUpdatable: function(elm) { 
-		return elm.joins ? elm.value.boundAsUpdatable : elm.boundAsUpdatable 
+		return elm.boundAsUpdatable
+	},
+	makeUse:function(elm) {
+		ko.utils.unwrapObservable(elm);
 	},
 	//make observable with name in container using fielddef as description
 	makeElement: function(container, name, fielddef) {
-		var c = container[name] = ko.observable();
+		var c = ko.observable();
+		if(fielddef.extend)
+			for(var i=0;i<fielddef.extend.length;++i)
+				c = c.extend(fielddef.extend[i]);
+		container[name] = c;
 		c.$ = fielddef;
 		c.parent = container.joins ? container.parent : container;
 		c.dbvalue = ko.observable();
 		c.sync = ko.observable( false );//sync with db
-		c.edited = false;
+		c.within = {}; //within conditions of those elements
 	},
+	isField:function(elm) {return elm.$},
 	isMulti:function(elm) {return elm.addNewLine },
 	//convert element (made with makeElement) to writable one (which is able to send itself to server)
 	convertToUpdatable: function(elm) {
 		elm.subscribe(function() {
 			if(this.isChanged(elm)) {
-				elm.edited = true;
-				elm.sync( false );
+				for(var i in elm.within) {//a relation participant
+					elm.needKeySelect = true;
+					elm.within[i].sync( false );
+				}
+				if(!elm.needKeySelect)//not a relation participant
+					elm.sync( false );
 				elm.sendToServer();
 			}
 		}, this);
@@ -78,12 +93,20 @@
 			c.$ = fielddef;
 			c.$$ = fielddef.target;
 			c.parent = container;
-			X.DBdefaultEnv.makeElement(c, 'value', fielddef); //observable = rel value (as field value)
-
+			X.DBdefaultEnv.makeElement(c, '_value', fielddef); //observable = rel value (as field value)
+			c.sync = function(val) {//there is no purpose to make relation sync usable in interface
+				X.DBdefaultEnv.oko(c).sync(false);
+				for(var i in c.joins) {
+					var node = c.joins[i];
+					for(var j in node)
+						if(node[j] && node[j].$)
+							node[j].sync(false)
+				}
+			}
 			/*c.refresh = function() {
 				for(var i in c.joins) {
 					var sql = X.sql.makeSelect(c.joins[i]);
-					X.Select.sendQuery(c.joins[i], sql);
+					X.Select.sendSelect(c.joins[i], sql);
 				}
 			}*/
 			//TODO:
@@ -101,16 +124,13 @@
 		c.parent = container;
 		c.auto = def.array && def.array.indexOf('auto')==0;
 		c.defer = def.array && def.array.indexOf('defer')==0;
-		c.ready = ko.observable(false);
+		c.sync = ko.observable(false);
 		c.refresh = function() {
-			c.sendQuery();
+			c.sendSelect();
 		}
-		c.sendQuery = function() {
-			c.ready(false);
-			var test_node = X.modelBuilder.appendElement(c);
-			var sql = X.sql.makeSelect(test_node);
-			c.remove(test_node);
-			X.Select.sendQuery(c, sql);
+		c.sendSelect = function() {
+			c.sync(false);
+			X.Select.sendSelect({ target: c });
 		}
 		c.addNewLine = function() {
 			X.modelBuilder.appendElement(c);
@@ -120,8 +140,8 @@
 		var env = this;
 		var c = new X.modelBuilder.tableNode(def);
 		c.$ = def;
-		c.sendQuery = function() {
-			c.ready(false);
+		c.sendSelect = function() {
+			//c.ready(false);
 			var sql = X.modelBuilder.collectSQL(c);
 			var json = X.sql.makeSelect(sql);
 			env.send(json, function(data) { env.writeRecord(c, sql.used, data) });

@@ -48,12 +48,53 @@ width:6em;
 	<input data-bind="click:population">
 	<button data-bind="click:addRecord">Добавить</button>
 </div-->
+
 <div id="show_city_table">
 <table>
 <thead></thead>
 <tbody data-bind="foreach:streets">
-	<tr><td><input data-bind="value:mail_service.value"><td><input data-bind="value:mail_service().building().street_name.value"><td data-bind="text:street_population"><td data-bind="text:city_id().country.value"><td data-bind="text:city_id().city_name">
-	<td><input data-bind="value:street_name"><td><input data-bind="value:city_id.value"><td><input data-bind="value:street_population"><td><input data-bind="value:city_id().country.value"><td><input data-bind="value:city_id().city_name"><button data-bind="click:destroy">delete</button>
+	<tr>
+	<td>
+		<div data-bind="choose: mail_service">
+			<div data-bind="click: show, visible:!choosing()">Почта?</div>
+			<div data-bind="visible:choosing() && mailoffices.sync()">
+				<table>
+				<thead></thead>
+				<tbody data-bind="foreach:mailoffices">
+				<tr data-bind="click: select, use:office_name"><td data-bind="text:building().street_name._value">
+				</tbody>
+				</table>
+			</div>
+		</div>
+	<td>
+		<div data-bind="with: mail_service()">
+			<span data-bind="text:office_name"></span><span data-bind="text:building().street_name._value"></span>
+		</div>
+	<td>
+		<div data-bind="choose: city_id().country().capital_city">
+			<div data-bind="click: show, visible:!choosing()">Столица?</div>
+			<div data-bind="visible:choosing() && cities.sync()">
+				<table>
+				<thead></thead>
+				<tbody data-bind="foreach:cities">
+				<tr data-bind="click: select, updatable: capital"><td data-bind="text:city_name">
+				</tbody>
+				</table>
+			</div>
+		</div>
+	<td data-bind="with:city_id().country().capital_city()"><span data-bind="text:city_name"></span>
+	<!--td><input data-bind="value:mail_service._value">
+	<td><input data-bind="value:mail_service().building().street_name._value">
+	<td data-bind="text:street_population">
+	<td data-bind="text:city_id().country._value">
+	<td data-bind="text:city_id().city_name">
+	<td><input data-bind="value:street_name"-->
+	<td><input data-bind="value:city_id._value">
+	<td><input data-bind="value:street_name">
+	<td><input data-bind="value:street_population">
+	<td><input data-bind="value:city_id().country._value">
+	<td><input data-bind="value:city_id().city_name">
+	<button data-bind="click:destroy">delete</button>
 </tbody>
 </table>
 <p><button data-bind="click:streets.addNewLine">Добавить</button><button data-bind="click:streets.refresh">Обновить</button></p>
@@ -66,9 +107,41 @@ width:6em;
 function SQLTODATA(sql) {
 }
 function Init() {
+	//patchModel - observables creating
+	//Z.extend(metaModel['streets']['mail_service'], { throttle:100 } );
+	//patchTemplate - observable created, fix templates
+	Z.binding('choose', function(dom, binds) {
+		//this is context
+		//$data - value
+		//$parent - value context
+		var rel = this['$data'];
+		if(!rel.joins[""]) 
+			rel.call(rel.parent);//make usable
+		Z.updatable(rel);//make updatable
+		function appendix() {
+			var self = this;
+			self.show = function() {//only after applyBindings is executed
+				self[rel.$$.name].sendSelect();
+				self.choosing(true);
+			}
+			self.select = function(table_node) {
+				Z.choose( rel, table_node );
+				self.choosing(false);
+			}
+			self.choosing = ko.observable(false);
+			X.DBdefaultEnv.makeArray(self, rel.$$.name, rel.$$);
+		}
+		ko.utils.extend(this, new appendix() );
+		//returns dom element where apply this context
+	} );
 	var M = X.runModel.multi(metaModel['streets']);
+
+
+	//patchTemplate
+	
+	//next
 	ko.applyBindings(M, document.getElementById('show_city_table'));
-	X.runModel.sendQuery(M);
+	X.runModel.sendSelect(M);
 }
 </script>
 </body>

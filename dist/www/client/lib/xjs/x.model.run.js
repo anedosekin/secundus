@@ -8,13 +8,13 @@
 			env.makeArray(model, tableObject.name, tableObject);
 			return model;
 		},
-		sendQuery: function(model) {
-			if(model.sendQuery) {
-				model.sendQuery();
+		sendSelect: function(model) {
+			if(model.sendSelect) {
+				model.sendSelect();
 			}
 			else {
 				for(var i in model) {
-					if(model[i] && model[i].sendQuery) model[i].sendQuery();
+					if(model[i] && model[i].sendSelect) model[i].sendSelect();
 				}
 			}
 		}

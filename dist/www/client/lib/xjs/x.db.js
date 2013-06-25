@@ -1,144 +1,167 @@
-﻿X.Upserte = (function(env) {
+﻿X.Queue = function(_send, _prepareCommand, _new_command,_prepareSending, _onresponse, _onerror, throttle) {
 	function newQueue() { return { cmds: [] } }
 	var DBQueue = newQueue();
 	var sentDBQueue = null;
-	var lockSending = 0;
+	var sendingLock = 0;
 	var cmdsWhenLocked = 0;
-
+	
+	this.lockSending = function() { ++sendingLock; }
+	this.unlockSending = function() { 
+		if(--sendingLock == 0 && cmdsWhenLocked) {
+			processQueue(); 
+			cmdsWhenLocked = 0;
+		} 
+	}
+	this.withLockedSending = function(f) { 
+		try { this.lockSending(); return f(); } 
+		finally { this.unlockSending(); } 
+	}
+	var errorCount = 0;
+	function onerror(err) {
+		//log...
+		_onerror(err);
+		++errorCount;
+		//resend... 
+		//DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
+		//sentDBQueue = null;
+		//processQueue();
+	}
+	function onresponce(cmds) {
+		errorCount = 0;
+		var objs = sentDBQueue.cmds;
+		for(var i = 0; i < cmds.length; ++i)
+			_onresponse(cmds[i], objs[i]);//sever, client
+		sentDBQueue = null;
+	}
 	function _processQueue() {
-		if(lockSending) { ++cmdsWhenLocked; return; }
+		if(sendingLock) { ++cmdsWhenLocked; return; }
 
 		if(DBQueue.cmds.length === 0) return;
 		
 		var to_send_queue = [];
 		
-		for(i = 0; i < DBQueue.cmds.length; ++i) {
-			var qe = DBQueue.cmds[i];
-			var to_send = { 
-					table: qe.keyObject.node.$$.name, 
-					key: qe.keyObject.DBKeyValue,
-					oid: X.OID(qe.keyObject) 
-					}
-			if(qe.objects) { //update/insert
-				to_send.values = {}
-				for(var j in qe.objects) {
-					// due to toJSON isCid translated to {cid:val} which is enough
-					to_send.values[j] = env.read(qe.objects[j]);
-				}
-				to_send_queue.push(X.sql.makeUpserte(to_send));
-			} else { //delete
-				if(qe.keyObject.DBKeyValue) //!DBKeyValue - new
-					to_send_queue.push(X.sql.makeUpserte(to_send));
-			}
-		}
+		for(i = 0; i < DBQueue.cmds.length; ++i)
+			_prepareCommand(DBQueue.cmds[i], to_send_queue);
+		
 		if(to_send_queue.length) {
-			//var j = JSON.stringify(to_send_queue);
 			sentDBQueue = DBQueue;
 			DBQueue = newQueue();
-			env.send(to_send_queue, onresponce, onerror)
+			_send(to_send_queue, onresponce, onerror)
 		}
 	}
-	var processQueue = X.throttle(_processQueue, env.interval);
-	function sendToServer(elm) {
-		var n = { keyObject: elm.key, objects: {} }
-		{
-			var last = DBQueue.cmds.slice(-1)[0];
-			var qe = last && n.keyObject === last.keyObject ? last : n;
-			
-			if(qe !== last)
-				DBQueue.cmds.push(n);
-			
-			if(elm.key._destroy)
-				qe.objects = null;
-			
-			if(qe.objects/* && env.isChanged(elm)*/) { //if not destroyed!
-				qe.objects[elm.$.name] = elm;
-			}
-		}
-		processQueue();
-	}
-	var errorCount = 0;
-	function onerror(err) {
-		//log...
-		env.onSendError("server responce:", err);
-		++errorCount;
-		//resend... 
-		DBQueue.cmds = sentDBQueue.cmds.concat(DBQueue.cmds);
-		sentDBQueue = null;
-		processQueue();
-	}
-	function onresponce(cmds) {
-		errorCount = 0;
-		//isCid NOT used
-		//must match!
-		var objs = sentDBQueue.cmds;
-		for(var t = 0; t < cmds.length; ++t)
-		{
-			var s = cmds[t]; //
-			var c = objs[t].keyObject; //must match previous!
-			if(s.oid !== X.OID(c)) {
-				//TODO: check match!
-				alert('oid is not match');
-			}
-			if(s.SUCCESS) {
-				var values = X.sql.valuesFromUpdate(s);
-				if(values) {
-					//insert/update
-					for(var i in values) {
-						var obj = objs[t].objects[i];
-						if(obj) {
-							obj = env.oko(obj);
-							obj.dbvalue(values[i]); //from server!!!! cids translated there!!!
-							if(env.isChanged(obj))
-								env.write(obj, obj.dbvalue()); //if server change value
-							obj.sync( true );
-						} else {
-							//server send new value, but does't ask it to change
-						}
-					}
-					//recalculate key for whole row
-					//DBKeyValue has db values
-					var k = {};
-					for(var i in c.values) //loop in keyObject
-						k[c.values[i].$.name] = c.values[i].dbvalue(); //new DBValue here!
-					c.DBKeyValue = k;
-				} else {
-					//delete
-					c.container.remove(c.node);
-					c.DBKeyValue = null; //clear key value from deleted records
-				}
-			} else {
-				env.writeSaveError(c, JSON.stringify(s));
-			}
-		}
-		sentDBQueue = null;
-	}
-	return {
-		toServer: sendToServer,
-
-		lockSending: function() { ++lockSending; },
-		unlockSending: function() { 
-					if(--lockSending == 0 && cmdsWhenLocked) {
-						processQueue(); cmdsWhenLocked = 0;
-					} 
-				},
-		withLockedSending: function(f) { 
-			try { this.lockSending(); return f(); } 
-			finally { this.unlockSending(); } 
-		},
+	var processQueue = throttle ? X.throttle(_processQueue, throttle) : _processQueue;
+	
+	this.sendToServer = function(elm) {
+		var nc = _new_command(elm);
+		var last = DBQueue.cmds.slice(-1)[0];
+		var qe = last && nc.keyObject === last.keyObject ? last : nc;
+		if(qe !== last)
+			DBQueue.cmds.push(nc);
 		
+		_prepareSending(elm, qe);
+		
+		processQueue();
+	}
+}
+X.Upserte = (function(env) {
+	function new_command(elm) {
+		return { keyObject: elm.key, objects: {} }
+	}
+	function prepareSending(elm, cont) {
+		if(elm.key._destroy)
+			cont.objects = null;
+		
+		if(cont.objects) { //if not destroyed!
+			cont.objects[elm.$.name] = elm;
+		}
+		return cont;
+	}
+	function prepareUpserte(c, queue) {
+		var to_send = { 
+				table: c.keyObject.node.$$.name, 
+				key: c.keyObject.DBKeyValue,
+				oid: X.OID(c.keyObject) 
+				}
+		if(c.objects) { //update/insert
+			to_send.values = {}
+			for(var j in c.objects) {
+				// due to toJSON isCid translated to {cid:val} which is enough
+				to_send.values[j] = env.read(c.objects[j]);
+			}
+			queue.push(X.sql.makeUpserte(to_send));
+		} else { //delete
+			if(c.keyObject.DBKeyValue) //!DBKeyValue - new
+				queue.push(X.sql.makeUpserte(to_send));
+		}
+	}
+	function onerror(err) {
+		env.onSendError("server responce:", err);
+	}
+	function onresponse(ser, cli) {//ser - server command, cli - client sent command
+		var key = cli.keyObject;
+		if(ser.oid !== X.OID(key)) {
+			//TODO: check match!
+			alert('oid is not match');
+		}
+		 //must match previous!
+		if(ser.SUCCESS) {
+			var values = X.sql.valuesFromUpdate(ser);
+			if(values) {
+				//insert/update
+				for(var i in values) {
+					var obj = cli.objects[i];
+					if(obj) {
+						obj = env.oko(obj);
+						obj.dbvalue(values[i]); //from server!!!! cids translated there!!!
+						if(env.isChanged(obj))
+							env.write(obj, obj.dbvalue()); //if server change value
+						obj.sync( true );
+					} else {
+						//server send new value, but does't ask it to change
+					}
+				}
+				//recalculate key for whole row
+				//DBKeyValue has db values
+				var k = {};
+				for(var i in key.values) //loop in keyObject
+					k[key.values[i].$.name] = key.values[i].dbvalue(); //new DBValue here!
+				key.DBKeyValue = k;
+			} else {
+				//delete
+				key.container.remove(key.node);
+				key.DBKeyValue = null; //clear key value from deleted records
+			}
+		} else {
+			env.writeSaveError(key, JSON.stringify(ser));
+		}
+	}
+	var queue = new X.Queue(env.send.bind(env), 
+					prepareUpserte, 
+					new_command, 
+					prepareSending, 
+					onresponse, 
+					onerror, 
+					env.interval)
+	return {
+		toServer: queue.sendToServer,
+		lockSending: queue.lockSending,
+		unlockSending: queue.unlockSending,
 		key: function(cont, table_node, vals) { // получает { value: KO }
-			this.container = cont;
 			this.node = table_node;
+			this.container = cont;
 			//this.DBValue = undefined; //TODO: calc it when we read object from server, and set ready = true
 			this.values = vals; //to make DBKeyValue and to trace changes in key 
 			this.pended_changes = {}; // objects; pended_changes === null when ready
 			this.ready = ko.computed(function() {
 				var k = {};
 				var insert_key = true;
+				var ready = true;
+				for(var i in this.values) {//TODO:simplify double reading
+					ready &= !X.isEmpty(env.read(this.values[i]));//subscription to all fields
+				}
+				if(!ready) return false;
 				for(var i in this.values) {
 					var v = env.read(this.values[i]);
-					if(X.isEmpty(v)) return false;
 					if(this.values[i].$.pk) {
 						v = this.values[i].dbvalue();
 						if(!X.isEmpty(v)) //if all dbvalues of key is empty, then insert
@@ -165,85 +188,97 @@
 			return this;
 		},
 		new_key: function(cont, table_node, vals) { return new this.key(cont, table_node, vals); }
-		
+	}
 		//TODO: move to prototype
 		//array: 1) combo items -> filled in filter -> so in select when data come 
 		// 2) subitems -> filled in select  when data come
 		// one object filled in select when data come
-	}
 })(X.DBdefaultEnv);
+
 X.Select = (function(env) {
-	var procObjects = {};
-	function onresponce(elm, response) {
-		for(var i=0;i<response.length;++i) {
-			var com = response[i];
-			if(com.SUCCESS) {
-				var data = com.RESULTSET;
-				if(env.isMulti(elm)) {
-					elm.removeAll();
-					env.writeArray(elm, data.length ? data : null);
-				}
-				else {
-					if(data.length > 1) 
-						env.writeSelectError( elm, JSON.stringify(com) );
-					env.writeRecord(elm, data.length ? data[0] : null);
-				}
-			} else {
-				env.writeSelectError( elm, JSON.stringify(com) );
-			}
-		}
-		delete procObjects[X.OID(elm)];
+	function new_command(elm) {
+		return { keyObject: elm.target, object: null }
 	}
-	function onerror(elm, error) {
+	function prepareSending(elem, cont) {
+		cont.object = elem;
+		return cont;
+	}
+	function prepareSelect(c, queue) {
+		if(c.object) {
+			var remove_node = null;
+			c.object.node = c.object.node || ( remove_node = X.modelBuilder.appendElement(c.object.target) );
+			var sql = X.sql.makeSelect(c.object.node, X.OID(c.keyObject));
+			if(remove_node)
+				c.object.target.remove(remove_node);
+			queue.push(sql);
+		}
+	}
+	function onresponse(ser, cli) {
+		if(ser.oid !== X.OID(cli.keyObject)) {
+			//TODO: check match!
+			alert('oid is not match');
+		}
+		var elm = cli.object.target;
+		if(ser.SUCCESS) {
+			var data = ser.RESULTSET;
+			if(env.isMulti(elm)) {
+				elm.removeAll();
+				env.writeArray(elm, data.length ? data : null);
+			}
+			else {
+				if(data.length > 1) 
+					env.writeSelectError( elm, JSON.stringify(com) );
+				env.writeRecord(elm, data.length ? data[0] : null);
+			}
+		} else {
+			env.writeSelectError( elm, JSON.stringify(ser) );
+		}
+	}
+	function onerror(error) {
 		env.onSendError("server responce:", error);
-		delete procObjects[X.OID(elm)];
-		sendQueryToServer(elm);//resend
 	}
-	function sendQueryToServer(elm, sql) {
-		var oid = X.OID(elm);
-		if(!procObjects[oid]) {
-			procObjects[oid] = elm;
-			env.send(sql, onresponce.bind(this, elm), onerror.bind(this, elm));
-		}
-	}
-	function rel_key(kv) {
-		this.key = kv;
-		//rel key field is subcribed via edit using
-		this.sync = ko.computed(function() {
-			var synced = true;
-			for(var i in this.key) {
-				var elm = env.oko(this.key[i]);
-				synced &= elm.sync() && elm.edited ;//subcribtion to sync changes
-			}
-			if(!synced) 
-				return false;
-			var clear_rel = true;
-			for(var i in this.key)
-				if(!X.isEmpty(env.oko(this.key[i]).peek()))
-					clear_rel = false;
-			if(clear_rel) {
-				for(var i in this.key)
-					if(this.key[i].joins) {
-						var c = this.key[i];
-						for(var j in c.joins) {
-							env.writeRecord(c.joins[j] ,null);
-						}
-					}
-			} else {
-				for(var i in this.key)
-					if(this.key[i].joins) {
-						var c = this.key[i];
-						for(var j in c.joins) {
-							var sql = X.sql.makeSelect(c.joins[j]);
-							X.Select.sendQuery(c.joins[j], sql);
-						}
-					}
-			}
-			return true;
-		}, this);
-	}
+	var queue = new X.Queue(env.send.bind(env), 
+				prepareSelect, 
+				new_command, 
+				prepareSending, 
+				onresponse, 
+				onerror);
 	return {
-		sendQuery: sendQueryToServer,
-		rel_key: rel_key
+		sendSelect: queue.sendToServer,
+		lockSending: queue.lockSending,
+		unlockSending: queue.unlockSending,
+		withLockedSending: queue.withLockedSending,
+		key: function(kv) {
+			this.key = kv;
+			//rel key field is subcribed via edit using
+			this.sync = ko.computed(function() {
+				var synced = true;
+				var refresh_need = false;
+				for(var i in this.key) {
+					var elm = env.oko(this.key[i]);
+					synced &= elm.sync();//subcribtion to sync changes
+					refresh_need |= elm.needKeySelect;
+				}
+				if(!synced || !refresh_need) 
+					return false;
+				for(var i in this.key) {
+					var elm = env.oko(this.key[i]);
+					delete elm.needKeySelect;
+				}
+				
+				var rels = {}
+				for(var i in this.key) {
+					var fld = env.oko(this.key[i]);
+					for(var j in fld.within)
+						rels[j] = fld.within[j];
+				}
+				
+				for(var i in rels)
+					for(var j in rels[i].joins)
+						X.Select.sendSelect({ target:rels[i].joins[j], node: rels[i].joins[j]});
+				return true;
+			}, this);
+		},
+		new_key: function(kv) { return new this.key(kv) }
 	}
 })(X.DBdefaultEnv);

@@ -45,7 +45,7 @@ var metaModel = patchModel({
 		country_name:{caption:'Название', pk:true},
 		capital_city:{caption:'Столица',
 			target:'cities',
-			condition:[{target:'capital',value:'true'}, {target:'country',point:'country_name'}]
+			condition:[{target:'capital',value:'true'}, { target:'country',point:'country_name' }]
 		},
 		cities:{caption:'Города',
 			target:'cities',
@@ -82,7 +82,7 @@ var metaModel = patchModel({
 			caption:'Обслуживаемые улицы',
 			target:'streets',
 			condition:[{point:'mail_service', target:'office_name'}],
-			array:'auto'
+			array:'defer'
 		}
 	}
 	/*,
