@@ -15,6 +15,7 @@
 			self.link = null;
 			self.where = "";
 			self.key = null;
+			self.relkey = null;
 			//this.ready = ko.observable(false);
 			for(var i in tableObject) {
 				var fieldObject = tableObject[i];
@@ -55,28 +56,35 @@
 			return this.joins[key] ||
 				(this.joins[key] = new X.modelBuilder.tableNode(this.$$, this, key));
 		},
-		makeOperands:function(elm, current_node, new_node, rel_params) {
+		makeOperands:function(cont, current_node, new_node, rel_params) {
 			var link = [];
-			var p = 0;
-			var params = rel_params && rel_params.split(':');
-			for(var i=0;i<elm.$.condition.length;++i) {
-				var c = elm.$.condition[i];
-				var ops = { 
-					field: new_node[env.isMulti(elm) ? c.point : c.target],//table_node - new node
-					value: current_node[env.isMulti(elm) ? c.target : c.point]}//this.parent - current node);
-				
-				if(c.value) {//rawvalue
-					ops.rawvalue = (c.value === "?" ? params[p++] : c.value);
-					link.valuable = true;
+			if(cont.$.condition) {
+				var p = 0;
+				var params = rel_params && rel_params.split(':');
+				for(var i=0;i<cont.$.condition.length;++i) {
+					var c = cont.$.condition[i];
+					var ops = { 
+						field: new_node[env.isMulti(cont) ? c.point : c.target],//table_node - new node
+						value: current_node[env.isMulti(cont) ? c.target : c.point]}//this.parent - current node);
+					
+					if(c.value) {//rawvalue
+						ops.rawvalue = (c.value === "?" ? params[p++] : c.value);
+						link.valuable = true;
+					}
+					link.push(ops);
 				}
-				env.oko(ops.value || ops.field).within[elm.$.name] = elm;//knowledge for fields of relations
-				link.push(ops);
+			} else {
+				for(var i in new_node) {
+					var elm = new_node[i];
+					if(elm && elm.$ && elm.$.pk) {
+						link.push( { field:elm, value: elm } );
+					}
+				}
 			}
-			return link;
+			new_node.linkops = link;
 		},
 		makeOps: function(cont, table_node, rel_params) {
-			if(cont.$.condition)
-				table_node.linkops = X.modelBuilder.makeOperands(cont, cont.parent, table_node, rel_params);
+			X.modelBuilder.makeOperands(cont, cont.parent, table_node, rel_params);
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
@@ -96,8 +104,7 @@
 
 			this.makeAliases(table_node);
 			this.makeUpdatables(cont, table_node);
-			this.makeRels(cont, table_node);
-			this.makeRelKeys(table_node);
+			this.makeNodeKeys(cont, table_node);
 			return table_node;
 		},
 		//x.rel() == X.modelBuilder.traverseRel(this.rel, arguments)
@@ -155,38 +162,13 @@
 				return link;
 			}, container);
 		},
-		generateRelKey:function(table_node) {
-			if(table_node.relkey) return table_node.relkey;
-			var kv = null;
-			for(var i=0; i < table_node.linkops.length; ++i) {
-				var v = table_node.linkops[i].value || table_node.linkops[i].field;
-				if(v && env.boundAsUpdatable(env.oko(v))) {
-					(kv = kv || {})[v.$.name] = v;
-				}
-			}
-			return table_node.relkey = kv && X.Select.new_key(kv);
-		},
-		makeRelKeys: function(table_node) {
+		makeNodeKeys:function(cont, table_node) {
+			table_node.relkey = X.Select.new_key(cont, table_node);
 			for(var i in table_node) {
 				var rel = table_node[i];
 				if(rel && rel.joins) { //it's rel
 					for(var j in rel.joins) { //it's rel params
-						var ops = rel.joins[j].linkops;
-						for(var i=0;i<ops.length;++i)
-							//if(ops[i].value)
-								(ops[i].value || ops[i].field).relkey = this.generateRelKey(rel.joins[j]);
-						this.makeRelKeys(rel.joins[j]);
-					}
-				}
-			}
-		},
-		makeRels:function(container, table_node, rel_params) {
-			this.makeLink(container, table_node, rel_params);
-			for(var i in table_node) {
-				var rel = table_node[i];
-				if(rel && rel.joins) { //it's rel
-					for(var j in rel.joins) { //it's rel params
-						this.makeRels(rel, rel.joins[j], j);
+						this.makeNodeKeys(rel, rel.joins[j]);
 					}
 				}
 			}

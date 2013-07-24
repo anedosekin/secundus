@@ -25,12 +25,14 @@ ko.bindingHandlers['ctrl'] = {
 <span data-bind="relation:city_id"></span>
 
 */
-function processTemplate() {
-	
-
-}
-function processModel() {
-	
+X.firstchild = function(n)
+{
+	x=n.firstChild;
+	while (x.nodeType!=1)
+	{
+	x=x.nextSibling;
+	}
+	return x;
 }
 var Z = (function(env) {
 	ko.bindingHandlers['use'] = {
@@ -61,9 +63,43 @@ var Z = (function(env) {
 			}
 		}
 	}
+	//internally registers it's own click method
+	ko.bindingHandlers['openform'] = {
+		'init':
+		function(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
+			var formTemplate = document.querySelector( valueAccessor() );
+			var params = allBindingsAccessor();
+			//params["modal"]
+			//params["inline"]
+			//register click
+			var openform = function() {
+				if(element.formOpened) return;
+				var target = X.firstchild(element) || element;
+				var form = document.createElement('DIV');
+				form.style.position = "absolute";
+				form.innerHTML = formTemplate.innerHTML;
+				target.appendChild(form);
+				
+				var context = bindingContext.extend({
+					close: function() {
+						target.removeChild(form);
+						element.formOpened = false;
+					}
+				});
+				
+				element.formOpened = true;
+				ko.applyBindingsToDescendants(context, form);
+				X.Select.sendSelect({ target:context["$data"], node: context["$data"]});
+			}
+			var click = function () { return {'click' : openform } };
+			ko.bindingHandlers['event']['init'].call(this, element, click, allBindingsAccessor, viewModel);
+		}
+	}
 	var rez = {
 		updatable: function(elm) {//TO env
 			if(elm.joins) {
+				if(!elm.joins[""]) 
+					elm.call(elm.parent);//make relation usable
 				var node = elm.joins[""];//rels with no parameters
 				var ops = node.linkops
 				for(var i = 0;i < ops.length;++i)
@@ -72,6 +108,7 @@ var Z = (function(env) {
 				env.makeUpdatable(elm);
 		},
 		choose: function(rel, source_node) {
+			//TODO:choose multiple values
 			//rel is relation to choose - object
 			//source_node - node with choosen vals
 			var node = rel.joins[""];//rels with no parameters
@@ -80,22 +117,18 @@ var Z = (function(env) {
 			//update old values to null
 			//update new values to old
 			if(ops.valuable) {
-				X.Select.lockSending();
 				X.Upserte.lockSending();
 				for(var i = 0;i<ops.length;++i) {
 					var fld = ops[i].field;
 					if(ops[i].rawvalue)
-						env.write(env.oko(fld), '');//dyssync
+						env.write(env.oko(fld), '');
 				}
-				X.Upserte.unlockSending();
-				X.Upserte.lockSending();
 				for(var i = 0;i<ops.length;++i) {
 					var fld = ops[i].field;
 					if(ops[i].rawvalue)
 						env.write(env.oko(source_node[fld.$.name]), ops[i].rawvalue)
 				}
 				X.Upserte.unlockSending();
-				X.Select.unlockSending();
 			} else {
 				X.Upserte.lockSending();
 				for(var i=0;i<ops.length;++i) {
@@ -111,7 +144,7 @@ var Z = (function(env) {
 			elem.extend = elem.extend || [];
 			elem.extend.push(params);
 		},
-		binding : function(bindname, patch) {
+		context : function(bindname, patch) {
 			//patch(dom, value, binds)
 			ko.bindingHandlers[bindname] = {
 				'init':

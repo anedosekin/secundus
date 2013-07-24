@@ -1,23 +1,10 @@
 ﻿X.Queue = function(_send, _prepareCommand, _new_command,_prepareSending, _onresponse, _onerror, throttle) {
 	function newQueue() { return { cmds: [] } }
 	var DBQueue = newQueue();
-	var sentDBQueue = null;
 	var sendingLock = 0;
 	var cmdsWhenLocked = 0;
-	
-	this.lockSending = function() { ++sendingLock; }
-	this.unlockSending = function() { 
-		if(--sendingLock == 0 && cmdsWhenLocked) {
-			processQueue(); 
-			cmdsWhenLocked = 0;
-		} 
-	}
-	this.withLockedSending = function(f) { 
-		try { this.lockSending(); return f(); } 
-		finally { this.unlockSending(); } 
-	}
 	var errorCount = 0;
-	function onerror(err) {
+	function onerror(sent, err) {
 		//log...
 		_onerror(err);
 		++errorCount;
@@ -26,12 +13,11 @@
 		//sentDBQueue = null;
 		//processQueue();
 	}
-	function onresponce(cmds) {
+	function onresponce(sent, cmds) {
 		errorCount = 0;
-		var objs = sentDBQueue.cmds;
+		var objs = sent.cmds;
 		for(var i = 0; i < cmds.length; ++i)
 			_onresponse(cmds[i], objs[i]);//sever, client
-		sentDBQueue = null;
 	}
 	function _processQueue() {
 		if(sendingLock) { ++cmdsWhenLocked; return; }
@@ -44,28 +30,42 @@
 			_prepareCommand(DBQueue.cmds[i], to_send_queue);
 		
 		if(to_send_queue.length) {
-			sentDBQueue = DBQueue;
+			var sentDBQueue = DBQueue;
 			DBQueue = newQueue();
-			_send(to_send_queue, onresponce, onerror)
+			_send(to_send_queue, onresponce.bind(this, sentDBQueue), onerror.bind(this, sentDBQueue))
 		}
 	}
-	var processQueue = throttle ? X.throttle(_processQueue, throttle) : _processQueue;
-	
-	this.sendToServer = function(elm) {
-		var nc = _new_command(elm);
-		var last = DBQueue.cmds.slice(-1)[0];
-		var qe = last && nc.keyObject === last.keyObject ? last : nc;
-		if(qe !== last)
-			DBQueue.cmds.push(nc);
-		
-		_prepareSending(elm, qe);
-		
-		processQueue();
+	var processQueue = X.throttle(_processQueue, throttle);
+	return {
+		lockSending : function() { ++sendingLock; },
+		unlockSending : function() { 
+			if(--sendingLock == 0 && cmdsWhenLocked) {
+				processQueue(); 
+				cmdsWhenLocked = 0;
+			} 
+		},
+		withLockedSending : function(f) { 
+			try { this.lockSending(); return f(); } 
+			finally { this.unlockSending(); } 
+		},
+		sendToServer : function(elm) {
+			var nc = _new_command( { keyObject: elm } );
+			var last = DBQueue.cmds.slice(-1)[0];
+			var qe = last && nc.keyObject === last.keyObject ? last : nc;
+			if(qe !== last)
+				DBQueue.cmds.push(qe);
+			
+			_prepareSending(elm, qe);
+			
+			processQueue();
+		}
 	}
 }
 X.Upserte = (function(env) {
-	function new_command(elm) {
-		return { keyObject: elm.key, objects: {} }
+	function new_command(cmd) {
+		cmd.keyObject = cmd.keyObject.key;
+		cmd.objects = {}
+		return cmd;
 	}
 	function prepareSending(elm, cont) {
 		if(elm.key._destroy)
@@ -135,7 +135,7 @@ X.Upserte = (function(env) {
 			env.writeSaveError(key, JSON.stringify(ser));
 		}
 	}
-	var queue = new X.Queue(env.send.bind(env), 
+	var queue = X.Queue(env.send.bind(env), 
 					prepareUpserte, 
 					new_command, 
 					prepareSending, 
@@ -196,8 +196,10 @@ X.Upserte = (function(env) {
 })(X.DBdefaultEnv);
 
 X.Select = (function(env) {
-	function new_command(elm) {
-		return { keyObject: elm.target, object: null }
+	function new_command(cmd) {
+		cmd.keyObject = cmd.keyObject.target;
+		cmd.object = null;
+		return cmd;
 	}
 	function prepareSending(elem, cont) {
 		cont.object = elem;
@@ -205,11 +207,11 @@ X.Select = (function(env) {
 	}
 	function prepareSelect(c, queue) {
 		if(c.object) {
-			var remove_node = null;
-			c.object.node = c.object.node || ( remove_node = X.modelBuilder.appendElement(c.object.target) );
+			var temp_node = null;
+			c.object.node = c.object.node || ( temp_node = X.modelBuilder.appendElement(c.object.target) );
 			var sql = X.sql.makeSelect(c.object.node, X.OID(c.keyObject));
-			if(remove_node)
-				c.object.target.remove(remove_node);
+			if(temp_node)
+				c.object.target.remove(temp_node);
 			queue.push(sql);
 		}
 	}
@@ -237,17 +239,89 @@ X.Select = (function(env) {
 	function onerror(error) {
 		env.onSendError("server responce:", error);
 	}
-	var queue = new X.Queue(env.send.bind(env), 
+	var queue = X.Queue(env.send.bind(env), 
 				prepareSelect, 
 				new_command, 
 				prepareSending, 
 				onresponse, 
-				onerror);
+				onerror, 0);
 	return {
 		sendSelect: queue.sendToServer,
 		lockSending: queue.lockSending,
 		unlockSending: queue.unlockSending,
 		withLockedSending: queue.withLockedSending,
+		key: function(container, table_node) {
+			var self = this;
+			self.container = container;
+			self.table_node = table_node;
+			{
+				var ops = self.table_node.linkops;
+				for(var i=0;i<ops.length;++i) {
+					var fld = env.oko(ops[i].value || ops[i].field);
+					fld.keys.push(self);
+				}
+			}
+			function defined_condition(peek_value) {
+				var wheres = [];
+				var links = [];
+				var ops = self.table_node.linkops;
+				for(var i=0;i<ops.length;++i) {
+					var field =  X.sql.node( env.oko(ops[i].field) );
+					var value = ops[i].value && env.oko(ops[i].value);
+					var link = null;
+					if( peek_value || !value) {
+						//join and where differences
+						if(!value && env.isMulti( self.container ))
+							throw "Error: array is built on backrel with parametrised condition";
+						if(env.isMulti( self.container )) {
+							value = env.read(value);//TODO:subscribe if updatables, other way - peek
+						} else {
+							value = value ? env.peek(value) : ops[i].rawvalue;//no subcription. those subscriptions in updatables
+						}
+						if(X.isEmpty(value))
+							value = " IS NULL";
+						else {
+							link = value;
+							value = "=?";
+						}
+					} else {
+						if(env.isMulti( self.container )) {
+							link = { field: X.sql.node(value) };
+							value = "=?";
+						} else
+							value = "="+ X.sql.node(value);
+					}
+					if(link)
+						links.push(link);
+					wheres.push(field + value);
+				}
+				return {where: wheres.join(' AND '), link: links}
+			}
+			self.general = defined_condition( false );
+			self.particular = null;
+			self.ready = ko.computed(function() {
+				var ops = this.table_node.linkops;
+				for(var i=0;i<ops.length;++i) {
+					var value = env.oko(ops[i].value || ops[i].field);
+					if( value && !value.sync() ) //subscribe to sync
+						return false;
+				}
+				this.particular = defined_condition( true );
+				return true;
+			}, self);
+			self.waiting_ready = false;
+			self.refresh = function() {
+				self.waiting_ready = true;
+				self._refresh = ko.computed(function(){
+					if(this.ready()) {//subscription to syncs
+						X.Select.sendSelect({ target:table_node, node: table_node});
+						waiting_ready = false;
+					}
+				}, self, { disposeWhen: function() { return !self.waiting_ready }});
+			}
+		},
+		new_key: function(cont, table_node) { return new this.key(cont, table_node) }
+		/*
 		key: function(kv) {
 			this.key = kv;
 			//rel key field is subcribed via edit using
@@ -279,6 +353,6 @@ X.Select = (function(env) {
 				return true;
 			}, this);
 		},
-		new_key: function(kv) { return new this.key(kv) }
+		new_key: function(kv) { return new this.key(kv) }*/
 	}
 })(X.DBdefaultEnv);
