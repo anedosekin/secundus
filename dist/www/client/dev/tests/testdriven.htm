@@ -255,7 +255,7 @@ function runTest(test, name) {
 	try {
 		var M = eval('X.runModel.'+test.type)(test.model[test.startTable]);
 		ko.applyBindings(M, cell);
-		X.runModel.sendQuery(M);
+		X.runModel.sendSelect(M);
 		var rendplace = document.getElementById('renderplace');
 		rendplace.innerHTML = test.htmlanswer;
 		if(cell.innerHTML !== rendplace.innerHTML) throw "answer isnt equal to etalon";

@@ -66,7 +66,7 @@
 		c.parent = container.joins ? container.parent : container;
 		c.dbvalue = ko.observable();
 		c.sync = ko.observable( false );//sync with db
-		c.within = {}; //within conditions of those elements
+		c.keys = []; //within conditions of those keys
 	},
 	isField:function(elm) {return elm.$},
 	isMulti:function(elm) {return elm.addNewLine },
@@ -74,12 +74,10 @@
 	convertToUpdatable: function(elm) {
 		elm.subscribe(function() {
 			if(this.isChanged(elm)) {
-				for(var i in elm.within) {//a relation participant
-					elm.needKeySelect = true;
-					elm.within[i].sync( false );
+				elm.sync( false );
+				for(var i=0;i < elm.keys.length;++i) {
+					elm.keys[i].refresh();
 				}
-				if(!elm.needKeySelect)//not a relation participant
-					elm.sync( false );
 				elm.sendToServer();
 			}
 		}, this);
@@ -94,7 +92,7 @@
 			c.$$ = fielddef.target;
 			c.parent = container;
 			X.DBdefaultEnv.makeElement(c, '_value', fielddef); //observable = rel value (as field value)
-			c.sync = function(val) {//there is no purpose to make relation sync usable in interface
+			/*c.sync = function(val) {//there is no purpose to make relation sync usable in interface
 				X.DBdefaultEnv.oko(c).sync(false);
 				for(var i in c.joins) {
 					var node = c.joins[i];
@@ -102,7 +100,7 @@
 						if(node[j] && node[j].$)
 							node[j].sync(false)
 				}
-			}
+			}*/
 			/*c.refresh = function() {
 				for(var i in c.joins) {
 					var sql = X.sql.makeSelect(c.joins[i]);

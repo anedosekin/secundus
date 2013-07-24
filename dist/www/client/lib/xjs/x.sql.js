@@ -13,12 +13,12 @@ var rez = {
 			var rel = table_node[i];
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
-					var sublink = rel.joins[j].link();
+					var conds = rel.joins[j].relkey.general;
 					ret.push(' LEFT OUTER JOIN ');
 					ret.push(this.collectJoins(rel.joins[j], link));
-					ret.push(' ON '+rel.joins[j].where);
-					for(var k=0;k<sublink.length;++k)
-						link.push(sublink[k]);
+					ret.push(' ON '+conds.where);
+					for(var k=0;k<conds.link.length;++k)
+						link.push(conds.link[k]);
 				}
 			}
 		}
@@ -76,12 +76,19 @@ var rez = {
 		//from
 		sql.FROM = X.sql.collectJoins(table_node, sql.LINK);
 		//where
-		sql.WHERE = !X.isEmpty(table_node.where) ? [table_node.where] : [];
-		//sql.WHERE = [table_node.where];
-		var link = table_node.link ? table_node.link() : [];
-		for(var i=0;i<link.length;++i) {
-			sql.LINK.push(link[i]);
+		sql.WHERE = [];
+		if(table_node.relkey.particular) {
+			var c = table_node.relkey.particular;
+			sql.WHERE.push( c.where );
+			for(var i=0;i<c.link.length;++i) {
+				sql.LINK.push(c.link[i]);
+			}
 		}
+		//sql.WHERE = [table_node.where];
+		//var link = table_node.link ? table_node.link() : [];
+		//for(var i=0;i<link.length;++i) {
+		//	sql.LINK.push(link[i]);
+		//}
 		return sql;
 	},
 	makeUpserte: function(object) {
