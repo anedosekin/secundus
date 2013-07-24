@@ -17,6 +17,8 @@ $jresult=json_decode('{"result":{"commands":[]}}',true);
 $requestOk=true;
 $curcom=null;
 $db=null;
+$errorSQL=false;
+
 /*
 $tyyp='{"x":["str",{"name":"data"}]}';
 $FFFFFF=json_decode($tyyp);
@@ -182,6 +184,96 @@ function getFilePath($name)
 	}
 	return "";
 }
+//------- execute commands -------
+function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
+{
+	global $errorSQL;
+	global $curcom;
+	if ($errorSQL) return NULL;	
+	$result=NULL;
+	$ended=false;
+	$numforresult=0;
+	if ($prevresult==0) $ended=true;
+	$prevrezrow=0;	
+	do
+	{	
+		$num=1;
+		foreach ($dat[JS_LINK] as $ldat)
+		{
+			$bval=$ldat[JS_LINK_DATA];
+			if (isset($ldat[JS_LINK_INC])) 
+			{
+				$linknum=-1;
+				$countinsels=0;
+				for ($i=0;$i<count($prevflds);$i++) 
+				{
+					if (!isset($prevflds[$i][JS_CMDTYPE])) 
+					{
+						$v=array_values($prevflds[$i])[0];// column name in prev select
+						if($v==$ldat[JS_LINK_DATA]) {$linknum=$i;break;}		
+					}
+					else $countinsels++;// v resultatah net eshe kolonki s rez. vlojennogo selecta
+				}					
+				if ($linknum!=-1) $bval=$prevresult[$prevrezrow][$linknum-$countinsels];
+				else 
+				{
+					logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
+					return null;
+				}
+			}
+			$stmt->bindValue($num,$bval);
+			$num++;
+		}
+		if ($stmt->execute())
+		{
+			if ($dat[JS_CMDTYPE]==JS_SELECT)
+			{
+				if ($prevflds==0)	$result=$stmt->fetchAll(PDO::FETCH_NUM);
+				else $result[]=$stmt->fetchAll(PDO::FETCH_NUM);
+			}
+			print_r($stmt->queryString);
+		}
+		else
+		{
+			if ($prevresult==0) logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$curcom,$stmt->errorInfo()[0]);
+			$errorSQL=true;
+			print_r($stmt->queryString);
+		}	
+		// prohodim po vsem resultatam vneshnego selecta				
+		if ($prevresult) if (count($prevresult)==($prevrezrow+1)) $ended=true;
+		$prevrezrow++;
+	}
+	while (!$ended);
+		
+	$hasinclude=false;
+	if (isset($dat[JS_FIELDS]))
+	{
+		foreach ($dat[JS_FIELDS] as $fld)
+		{
+			if (isset($fld[JS_CMDTYPE]))
+			{
+				$hasinclude=true;
+				$nextstmt=make_command($fld,'sam',$db);
+				$rz=execSQL($nextstmt, $fld, $db, $result,$dat[JS_FIELDS]);
+				//echo "\n";print_r($result[$j]);echo "\n";print_r($result[$j]);
+				for ($j=0;$j<count($result);$j++)
+				{
+				$tmparr=null;
+				$tmparr[]=$rz[$j];
+				array_splice($result[$j],$numforresult,0,$tmparr);
+				}
+				}
+				$numforresult++;
+		}
+	}		
+	// if first call
+	if ($prevresult==0&&$errorSQL!=true) 
+	{
+		if ($stmt->rowCount()!=0 && $dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$result;
+		logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
+	}
+	return $result;
+}
 //====================================================
 //                  END OF FUNCTIONS
 //====================================================
@@ -256,28 +348,13 @@ try
 			}
 			try
 			{
-				$stmt=make_command($dat,'sam',$db);				
-				$num=1;
-				foreach ($dat[JS_LINK] as $ldat)
-				{
-					$stmt->bindValue($num,$ldat);
-					$num++;
-				}			
-				if (!($stmt->execute()))
-				{
-					logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$dat,$stmt->errorInfo()[0]);
-					print_r($stmt->queryString);
-				}
-				else 
-				{					
-					if ($dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$stmt->fetchAll(PDO::FETCH_NUM);
-					logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
-					print_r($stmt->queryString);					
-				}				
+				$errorSQL=false;
+				$stmtcom=make_command($dat,'sam',$db);
+				execSQL($stmtcom,$dat,$db);				
 			}
 			catch(Exception $ex)
 			{
-				logMsg("Error. ".$ex->getMessage(),LOG_ERR_COMM,$dat,$ex->getCode());
+				logMsg("Error. Excpt. ".$ex->getMessage(),LOG_ERR_COMM,$dat,$ex->getCode());
 			}							
 		}
 	}

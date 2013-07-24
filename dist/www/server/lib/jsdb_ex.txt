@@ -7,9 +7,18 @@ INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 
 {
   "commands":[
-  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":{"txtdata":"?","intdata":"?"},"LINK":["HHH","222"]}
+  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"LINK":[{"DATA":"HHH"},{"DATA":"222"}]}
  ]
 }
+with blob:
+
+{
+  "commands":[
+  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"},{"blobdata":"?"}],"LINK":[{"DATA":"HHH"},{"DATA":"222"},{"DATA":"text.txt","ISFILE":true}]}
+ ]
+}
+
+
 ==================================================================
 DELETE
 
@@ -17,7 +26,7 @@ DELETE FROM rmn_exp ex WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"DELETE","FROM":"rmn_exp ex","WHERE":["intdata=?"],"LINK":["222"]}
+ {"TYPE":"DELETE","FROM":"rmn_exp ex","WHERE":["intdata=?"],"LINK":[{"DATA":"222"}]}
 ]
 }
 ==================================================================
@@ -27,7 +36,7 @@ UPDATE rmn_exp ex SET txtdata = ?, intdata = ? WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"UPDATE","FROM":"rmn_exp ex","FIELDS":{"txtdata":"?","intdata":"?"},"WHERE":["intdata=?"],"LINK":["RRR","111","222"]}
+ {"TYPE":"UPDATE","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"RRR"},{"DATA":"111"},{"DATA":"222"}]}
 ]
 }
 ==================================================================
@@ -37,10 +46,21 @@ SELECT txtdata AS txtinf, intdata AS intinf FROM rmn_exp ex  WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],"WHERE":["intdata=?"],"LINK":["222"]}
+ {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"222"}]}
 ]
 }
 Ответ:
 {"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],"WHERE":["intdata=?"],"LINK":["222"],"RESULTSET":[{"txtinf":"HHH","intinf":"222"},{"txtinf":"HHH","intinf":"222"}],"SUCCESS":true,"ROWS":2}]}}
 Сами данные находятся в массиве RESULTSET.
+
+Вложенный select
+
+{
+ "commands":[
+ {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel ex","FIELDS":[{"idd":"id"},{"info":"txtinfo"},{"just":"justtxt"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"intdata","INSEL":true}]},{"txtinf":"txtdata"},{"intinf":"intdata"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"3"}]}
+]
+}
+
+Ответ:
+{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel ex","FIELDS":[{"idd":"id"},{"info":"txtinfo"},{"just":"justtxt"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"intdata","INSEL":true}]},{"txtinf":"txtdata"},{"intinf":"intdata"}],"WHERE":["intdata=?"],"LINK":[{"DATA":"3"}],"RESULTSET":[[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"aaa","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"bbb","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ccc","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ggg","3"]],"SUCCESS":true,"ROWS":4}]}}
 

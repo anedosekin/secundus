@@ -16,6 +16,11 @@
 	объекты сканируем "вверх" для каждой роли
 	нашли - выходим (возвращаем приоритет и параметр)
 */
+class SelectData
+{
+	public $stmt=null;
+	public $links=null;
+}
 
 define('SQL_FORBIDDEN',
        "\\\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F");
@@ -47,6 +52,9 @@ define('JS_ORDER', 'ORDER');
 define('JS_GROUP', 'GROUP');
 
 define('JS_LINK', 'LINK');
+define('JS_LINK_DATA','DATA');
+define ('JS_LINK_INC','INSEL');
+define ('JS_LINK_FILE','ISFILE');
 
 define('DEFAULT_OBJECT_PARAMS', '$all');
 define('DEFAULT_ROLE_PRI', '$prioritet');
@@ -293,30 +301,30 @@ function main_table($cmd) {
 	preg_match($RE_TABLE, $cmd[JS_TABLES],$rzlt);
   	return $rzlt[1]; //table format checked before!
 }
-
+// return - array {prepared statment & LINK}
 function make_command(&$cmd, $composed_roles,$dbh) {
-  $composed_comand = make_string_command($cmd,$dbh);
-  $cache_key = strpos( $composed_comand, '$USER' ) === false ? 
-    "$composed_comand; ROLES $composed_roles" : // independent from user
-    "$composed_comand; ROLES $composed_roles; USER $current_user" //depends from user
-    ;
-
-  static $command_cache = array();
-  if(array_key_exists($cache_key, $command_cache)) return $command_cache[$cache_key];
-  
-  $dbh = get_connection(main_table($cmd));
-  $composed_comand = make_string_command($cmd, $dbh);
-/*
-  $composed_command = 
-    cached('sql-commands', $cache_key,
-	   function($key) use(&$cmd, $dbh, $composed_roles) {
-			 add_role_filter_to_command($cmd, $composed_roles);
-			 return make_string_command($cmd, $dbh);
-  
-	   });
-*/
-  $command_cache[$cache_key] = $dbh->prepare($composed_comand);
-  return $command_cache[$cache_key] = $dbh->prepare($composed_comand);
+	$composed_comand = make_string_command($cmd,$dbh);
+	$cache_key = strpos( $composed_comand, '$USER' ) === false ?
+	"$composed_comand; ROLES $composed_roles" : // independent from user
+	"$composed_comand; ROLES $composed_roles; USER $current_user" //depends from user
+	;
+	
+	static $command_cache = array();
+	if(array_key_exists($cache_key, $command_cache)) return $command_cache[$cache_key];
+	
+	//$dbh = get_connection(main_table($cmd));// не понял, нафиг это
+	//$composed_comand = make_string_command($cmd, $dbh);// это тоже
+	/*
+	$composed_command =
+	cached('sql-commands', $cache_key,
+			function($key) use(&$cmd, $dbh, $composed_roles) {
+			add_role_filter_to_command($cmd, $composed_roles);
+			return make_string_command($cmd, $dbh);
+	
+			});
+	*/
+	$command_cache[$cache_key] = $dbh->prepare($composed_comand);
+	return $command_cache[$cache_key] = $dbh->prepare($composed_comand);
 }
 
 function make_where($cmd, $dbh) {
@@ -421,7 +429,6 @@ function compose_select_or_insert($cmd, $dbh, $links = null) {
     throw new Exception('found subselect with into cause');
 
   $flds = array_keys($cmd[JS_FIELDS]);
-
   $select = array();
   // добавлена поддержка FIELDS типа 
   // "FIELDS":["f1",{"f2 alias":"f2"}]
@@ -429,17 +436,11 @@ function compose_select_or_insert($cmd, $dbh, $links = null) {
   {
   	//=>$expr
   	//if(is_string($expr)) $select[] = "$expr AS $fld";
+  	// если есть вложенный селект, то в нем должны быть филдсы, иначе это филд с алиасом
   	if(is_string($fld)) $select[] = "$fld";
-  	else 
-  	{
-  		if (!isset($fld[JS_FIELDS]))
-  		{
-  			// если есть вложенный селект, то в нем должны быть филдсы, иначе это филд с алиасом
-  			foreach ($fld as $al=>$val) $select[] = "$val AS $al";
-  		}
-  	}
+  	else if (!isset($fld[JS_FIELDS])) foreach ($fld as $al=>$val) $select[] = "$val AS $al";
+	
   }    
-
   if(isset($cmd['DEFAULTS']))
     foreach(array_diff_key($cmd['DEFAULTS'], $cmd[JS_FIELDS]) as $fld=>$expr)
       $select[] = "$expr AS $fld";
