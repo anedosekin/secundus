@@ -42,6 +42,7 @@ define('JS_SELECT', 'SELECT');
 define('JS_INSERT', 'INSERT');
 define('JS_UPDATE', 'UPDATE');
 define('JS_DELETE', 'DELETE');
+define('JS_GENSID','GENSID');
 define('JS_RESULTSET','RESULTSET');
 
 define('JS_FIELDS', 'FIELDS');
@@ -55,6 +56,7 @@ define('JS_LINK', 'LINK');
 define('JS_LINK_DATA','DATA');
 define ('JS_LINK_INC','INSEL');
 define ('JS_LINK_FILE','ISFILE');
+define ('JS_LINK_ADDSID','ADDSID');
 
 define('DEFAULT_OBJECT_PARAMS', '$all');
 define('DEFAULT_ROLE_PRI', '$prioritet');

@@ -10,14 +10,14 @@ define ("MSG_TXT","MSGTXT");
 define ("MSG_ERR_CODE","SQLSTATE");
 define ("MSG_EXEC_OK","SUCCESS");
 define ("MSG_ROW_COL","ROWS");
-//----------------------
-define ("MSG_SID","SETSID");
+
 //----------------------
 $jresult=json_decode('{"result":{"commands":[]}}',true);
 $requestOk=true;
 $curcom=null;
 $db=null;
 $errorSQL=false;
+$sid=null;
 
 /*
 $tyyp='{"x":["str",{"name":"data"}]}';
@@ -189,6 +189,7 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 {
 	global $errorSQL;
 	global $curcom;
+	global $sid;
 	if ($errorSQL) return NULL;	
 	$result=NULL;
 	$ended=false;
@@ -221,6 +222,7 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 					return null;
 				}
 			}
+			if ($sid!="" && isset($ldat[JS_LINK_ADDSID])) $bval.=$sid;
 			$stmt->bindValue($num,$bval);
 			$num++;
 		}
@@ -266,7 +268,7 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 				$numforresult++;
 		}
 	}		
-	// if first call
+	// if top call
 	if ($prevresult==0&&$errorSQL!=true) 
 	{
 		if ($stmt->rowCount()!=0 && $dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$result;
@@ -316,22 +318,25 @@ try
 	{
 		prepearDB($db);
 		//testSIDS($jdata['commands'],$db);
-		$sid="";
 		foreach($jdata['commands'] as $dat)
 		{
-			if ($dat[JS_CMDTYPE]==MSG_SID)
+			if ($dat[JS_CMDTYPE]==JS_GENSID)
 			{
 				$sid=getSID($db);
-				if (isset($dat[JS_FIELDS])) $sid=$dat[JS_FIELDS].$sid;
+				if (isset($dat[JS_LINK])) 
+				{
+					$ssid=$dat[JS_LINK][0][JS_LINK_DATA];
+					$sid=$ssid.$sid;
+				}
 				if ($sid)
 				{
-					$dat[JSQ_DATA]=$sid;
+					$dat[JS_RESULTSET]=array($sid);
 					logMsg("",LOG_COM_OK,$dat);
 					break;
 				}
 				else
 				{
-					$dat[JSQ_DATA]="";
+					$dat[JS_RESULTSET]=array();
 					logMsg("Get sid inc err.",LOG_ERR_COMM,$dat);
 					$sid="";
 				}
@@ -348,9 +353,12 @@ try
 			}
 			try
 			{
-				$errorSQL=false;
-				$stmtcom=make_command($dat,'sam',$db);
-				execSQL($stmtcom,$dat,$db);				
+				if ($dat[JS_CMDTYPE]!=JS_GENSID)
+				{
+					$errorSQL=false;
+					$stmtcom=make_command($dat,'sam',$db);
+					execSQL($stmtcom,$dat,$db);					
+				}							
 			}
 			catch(Exception $ex)
 			{

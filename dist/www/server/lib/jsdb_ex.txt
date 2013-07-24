@@ -18,6 +18,20 @@ with blob:
  ]
 }
 
+with SID:
+
+{
+  "commands":[
+  {"TYPE":"GENSID","LINK":[{"DATA":"pfff"}]},
+  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"LINK":[{"DATA":"HHH","ADDSID":true},{"DATA":"222"}]}
+  ]
+}
+Ответ:
+{"result":{"commands":[
+{"TYPE":"GENSID","LINK":[{"DATA":"pfff"}],"RESULTSET":["pfff27"],"SUCCESS":true,"ROWS":0},
+{"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"LINK":[{"DATA":"HHH","ADDSID":true},{"DATA":"222"}],"SUCCESS":true,"ROWS":1}
+]}}
+
 
 ==================================================================
 DELETE
