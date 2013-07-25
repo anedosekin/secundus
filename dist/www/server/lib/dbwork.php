@@ -221,9 +221,20 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 					logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
 					return null;
 				}
-			}
+			}			
 			if ($sid!="" && isset($ldat[JS_LINK_ADDSID])) $bval.=$sid;
-			$stmt->bindValue($num,$bval);
+			if (isset($ldat[JS_LINK_FILE]))
+			{
+				$pfile=getFilePath($ldat[JS_LINK_DATA]);
+				if ($pfile=="") throw new Exception("Error bind. Empty file",-1);
+				if (is_uploaded_file($pfile))
+				{
+					$fp = fopen($pfile,"rb");
+					if(!($stmt->bindValue($num,$fp,PDO::PARAM_LOB))) throw new Exception("Bind err. ".$sm->errorInfo()[2],$sm->errorInfo()[0]);
+				}
+				else throw new Exception("Error bind. File loaded not via HTTP POST.",-1);
+			}
+			else $stmt->bindValue($num,$bval);
 			$num++;
 		}
 		if ($stmt->execute())
