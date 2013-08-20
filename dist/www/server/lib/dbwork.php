@@ -263,10 +263,12 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 					$result=$stmt->fetchAll(PDO::FETCH_NUM);
 					resTrans($result);
 				}
-				else $result[]=resTrans($stmt->fetchAll(PDO::FETCH_NUM));
-				// resource translate
-				
-				
+				else
+				{
+					$tmprez=$stmt->fetchAll(PDO::FETCH_NUM);
+					resTrans($tmprez);
+					$result[]=$tmprez;
+				}
 			}
 			print_r($stmt->queryString);
 		}
