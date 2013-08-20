@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 ini_set('display_errors', 'On');
 //----------------------
 define ("LOG_ERR_COMM","ERR_COM");
@@ -184,6 +184,23 @@ function getFilePath($name)
 	}
 	return "";
 }
+//------- resource to text ------
+function resTrans (&$var)
+{
+	foreach ($var as &$v) 
+	{
+		if (is_resource($v)) 
+		{
+
+			$contents="";
+			while (!feof($v)) $contents.= fread($v, 8192);
+			if (testUTF($contents)) $v=strval($contents);
+			else $v="";
+			//else echo "\nVaka maka floy\n";
+		}
+		if (is_array($v)) resTrans($v);
+	}
+}
 //------- execute commands -------
 function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 {
@@ -241,8 +258,15 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 		{
 			if ($dat[JS_CMDTYPE]==JS_SELECT)
 			{
-				if ($prevflds==0)	$result=$stmt->fetchAll(PDO::FETCH_NUM);
-				else $result[]=$stmt->fetchAll(PDO::FETCH_NUM);
+				if ($prevflds==0)	
+				{
+					$result=$stmt->fetchAll(PDO::FETCH_NUM);
+					resTrans($result);
+				}
+				else $result[]=resTrans($stmt->fetchAll(PDO::FETCH_NUM));
+				// resource translate
+				
+				
 			}
 			print_r($stmt->queryString);
 		}
