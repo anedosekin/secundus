@@ -1,4 +1,5 @@
 mysql
+
 $main_cfg = array(
 		  'cache' => array( 'timeout' => 1, 'local' => true ),
 		  'default_db' => array(
@@ -8,17 +9,21 @@ $main_cfg = array(
 					'pass' => '1',
 					)
 		  );
-mssql odbc
+		  
+mssql
+
 $main_cfg = array(
 		  'cache' => array( 'timeout' => 1, 'local' => true ),
 		  'default_db' => array(
 					'dialect' => 'mssql',
-					'server'=>'odbc:Driver={SQL Server};Server=SHUMSKY-XC-O3\SQLEXPRESS;Database=tst;Uid=puser;Pwd=1;',
-					'user' => '',
-					'pass' => '',
+					'server'=>'sqlsrv:Server=SHUMSKY-XC-O3\SQLEXPRESS;Database=tst;ConnectionPooling=true;MultipleActiveResultSets=true;QuotedId=true;',
+					'user' => 'puser',
+					'pass' => '1',
 					)
 		  );
+		  
 pgsql
+
 $main_cfg = array(
 		  'cache' => array( 'timeout' => 1, 'local' => true ),
 		  'default_db' => array(
@@ -28,7 +33,9 @@ $main_cfg = array(
 					'pass' => '1',
 					)
 		  );
+		  
 Oracle
+
 $main_cfg = array(
 		  'cache' => array( 'timeout' => 1, 'local' => true ),
 		  'default_db' => array(

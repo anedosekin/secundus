@@ -1,5 +1,8 @@
 <?php
 ini_set('display_errors', 'On');
+iconv_set_encoding("internal_encoding", "UTF-8");
+iconv_set_encoding("input_encoding", "UTF-8");
+iconv_set_encoding("output_encoding", "UTF-8");
 //----------------------
 define ("LOG_ERR_COMM","ERR_COM");
 define ("LOG_ERR_SYS","ERR_SYS");
@@ -38,7 +41,7 @@ function testUTF($tst)
 	if ($jd['txt']==null) return false;
 	return true;
 }
-//------- logMsg -------
+//------- output results and messages -------
 function logMsg($txt,$type="",$data=null,$errcode=-1,$count=0)
 {
 	if ($txt!==null )$txt=str_replace(array("\n","\r","\t","\\","\'","\"","\n\r")," ",$txt);
@@ -80,6 +83,7 @@ function endScript($isbin=false)
 		header("HTTP/1.1 400 Bad Request");
 	}
 	echo json_encode($jresult);
+	error_log("A seichas vse umret");
 	die;
 }
 //------ db prepear ------
@@ -93,6 +97,7 @@ function prepearDB(&$db)
 		$db->exec ("SET DateStyle = ISO,YMD");
 		$db->exec ("SET timezone = UTC");
 		$db->exec ("SET client_min_messages = 'warning'");
+		$db->exec ("SET bytea_output=escape");
 	}
 	// for mysql
 	if ($dbtype=="mysql")
@@ -102,10 +107,11 @@ function prepearDB(&$db)
 		$db->exec ("SET SESSION sql_mode='STRICT_ALL_TABLES,PIPES_AS_CONCAT,ANSI_QUOTES,IGNORE_SPACE,NO_KEY_OPTIONS,NO_TABLE_OPTIONS,NO_FIELD_OPTIONS,NO_AUTO_CREATE_USER,ONLY_FULL_GROUP_BY,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_BACKSLASH_ESCAPES'");
 
 	}
-	// for ms sql
-	if ($dbtype=="sqlsrv"||$dbtype=="odbc")
+	// for ms sql 
+	if ($dbtype=="mssql")
 	{
-		$db->exec ("SET CHARSET utf-8");
+		// to do AnsiNPW=Yes
+		// utf-8 setted in connection attribs
 		$db->exec ("SET LANGUAGE us_english");
 		$db->exec ("SET DATEFORMAT YMD");
 	}
@@ -122,19 +128,20 @@ function prepearDB(&$db)
 	}
 }
 // --------- get SID from DB ----------
-function getSID(&$db)
+function getSID($db)
 {
 	$result=null;
 	$dbtype=$db->dialect;
 	$sqlq="";
-	if ($dbtype=="pgsql" ||$dbtype=="mysql") $sqlq="select getSidNum()";
+	if ($dbtype=="pgsql" ||$dbtype=="mysql") $sqlq="select getSidNum()"; //maybe just select
 	if ($dbtype=="oci") $sqlq="select getIncForSID.nextval from dual";
-	if ($dbtype=="sqlsrv"||$dbtype=="mssql") $sqlq="execute getSidNum;";
+	if ($dbtype=="mssql") $sqlq="execute getSidNum;";
 	try
 	{
 		$ttt=null;
 		if ($dbtype=="sqlite")
 		{
+			//maybe 2 commands in one string???
 			$sqllq1="update sid_num_generator set getSidNum=getSidNum+1 where unid=1;";
 			if ($db->exec($sqllq1)==1) $ttt=$db->query("select getSidNum from sid_num_generator;");
 		}
@@ -142,7 +149,7 @@ function getSID(&$db)
 		if ($ttt)
 		{
 			$result=$ttt->fetchAll();
-			if ($result) $result=$result[0][0];
+			if ($result) $result=$result[0][0]; //PDO::FETCH_COLUMN
 		}
 		else logMsg($db->errorInfo()[2],LOG_ERR_SYS,null,$db->errorInfo()[0]);
 	}
@@ -153,6 +160,7 @@ function getSID(&$db)
 	return $result;
 }
 // ------- get file path from $_FILE
+// please, comment it!!!! here!!! how it works and why
 function getFilePath($name)
 {
 	foreach ($_FILES as $fl)
@@ -161,7 +169,8 @@ function getFilePath($name)
 		if (is_array($fl['name']))
 		{
 			$i=0;
-			$num=-1;
+			$num=array_search ($name, $fl['name'], true);
+			/*???? TODEL
 			foreach ($fl['name'] as $tmpn)
 			{
 				if (strcmp($tmpn,$name)==0) {
@@ -169,13 +178,13 @@ function getFilePath($name)
 				}
 				$i++;
 			}
+			*/
 			if (isset($fl['error'][$num])) if ($fl['error'][$num]!=0) return "";
 			if (isset($fl['tmp_name'][$num])) return $fl['tmp_name'][$num];
 		}
 		else
 		{
-			if (!isset($fl['name'])) return "";
-			if (strcmp($fl['name'],$name)==0)
+			if (strcmp($fl['name'],$name)==0) //??? $fl['name'] === $name
 			{
 				if (!isset($fl['error'])) return "";
 				if ($fl['error']==0) return $fl['tmp_name'];
@@ -191,29 +200,26 @@ function resTrans (&$var)
 	{
 		if (is_resource($v)) 
 		{
-
-			$contents="";
-			while (!feof($v)) $contents.= fread($v, 8192);
-			if (testUTF($contents)) $v=strval($contents);
-			else $v="";
-			//else echo "\nVaka maka floy\n";
+			$contents=null;
+			$contents=stream_get_contents ($v);
+			$v=strval($contents);//'H*',
+			//else $v="";
 		}
 		if (is_array($v)) resTrans($v);
-	}
+	}	
 }
 //------- execute commands -------
-function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
+// examples!!!!! here!!!!
+
+function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 {
-	global $errorSQL;
-	global $curcom;
+	global $errorSQL; //change to exception catch outside loop
+	global $curcom; //change to exception catch at toplevel loop
 	global $sid;
 	if ($errorSQL) return NULL;	
 	$result=NULL;
-	$ended=false;
-	$numforresult=0;
-	if ($prevresult==0) $ended=true;
-	$prevrezrow=0;	
-	do
+	$resultcount=0;
+	foreach($prevresult ?: [''] as $prevrezrow)
 	{	
 		$num=1;
 		foreach ($dat[JS_LINK] as $ldat)
@@ -223,7 +229,8 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 			{
 				$linknum=-1;
 				$countinsels=0;
-				for ($i=0;$i<count($prevflds);$i++) 
+				//should be $prevrezrow[array_search($ldat[JS_LINK_DATA], $prevflds)]
+				for ($i=0;$i<count($prevflds);$i++) //VERY BAD!!!! 
 				{
 					if (!isset($prevflds[$i][JS_CMDTYPE])) 
 					{
@@ -232,7 +239,7 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 					}
 					else $countinsels++;// v resultatah net eshe kolonki s rez. vlojennogo selecta
 				}					
-				if ($linknum!=-1) $bval=$prevresult[$prevrezrow][$linknum-$countinsels];
+				if ($linknum!=-1) $bval=$prevrezrow[$linknum-$countinsels];
 				else 
 				{
 					logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
@@ -258,19 +265,13 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 		{
 			if ($dat[JS_CMDTYPE]==JS_SELECT)
 			{
-				if ($prevflds==0)	
-				{
-					$result=$stmt->fetchAll(PDO::FETCH_NUM);
-					resTrans($result);
-				}
-				else
-				{
-					$tmprez=$stmt->fetchAll(PDO::FETCH_NUM);
-					resTrans($tmprez);
-					$result[]=$tmprez;
-				}
+			// PDO::SQLSRV_ENCODING_BINARY may be need
+				if ($prevflds==0)	$result=$stmt->fetchAll(PDO::FETCH_NUM);
+				else $result[]= $stmt->fetchAll(PDO::FETCH_NUM);
+				$resultcount=count($result);
 			}
-			print_r($stmt->queryString);
+			else $resultcount=$stmt->rowCount();
+			print_r($stmt->queryString);			
 		}
 		else
 		{
@@ -278,38 +279,29 @@ function execSQL($stmt, $dat, &$db, $prevresult=0, $prevflds=0)
 			$errorSQL=true;
 			print_r($stmt->queryString);
 		}	
-		// prohodim po vsem resultatam vneshnego selecta				
-		if ($prevresult) if (count($prevresult)==($prevrezrow+1)) $ended=true;
-		$prevrezrow++;
 	}
-	while (!$ended);
-		
-	$hasinclude=false;
 	if (isset($dat[JS_FIELDS]))
 	{
-		foreach ($dat[JS_FIELDS] as $fld)
+		foreach ($dat[JS_FIELDS] as $numforresult => $fld)
 		{
 			if (isset($fld[JS_CMDTYPE]))
 			{
-				$hasinclude=true;
 				$nextstmt=make_command($fld,'sam',$db);
 				$rz=execSQL($nextstmt, $fld, $db, $result,$dat[JS_FIELDS]);
 				//echo "\n";print_r($result[$j]);echo "\n";print_r($result[$j]);
-				for ($j=0;$j<count($result);$j++)
-				{
-				$tmparr=null;
-				$tmparr[]=$rz[$j];
-				array_splice($result[$j],$numforresult,0,$tmparr);
-				}
-				}
-				$numforresult++;
+				foreach ($result as $j => &$res) array_splice($res,$numforresult,0, [$rz[$j]] );
+			}
 		}
 	}		
 	// if top call
 	if ($prevresult==0&&$errorSQL!=true) 
-	{
-		if ($stmt->rowCount()!=0 && $dat[JS_CMDTYPE]==JS_SELECT) $dat[JS_RESULTSET]=$result;
-		logMsg("",LOG_COM_OK,$dat,0,$stmt->rowCount());
+	{		
+		if($result) 
+		{	
+			resTrans($result);
+			$dat[JS_RESULTSET]=$result;			
+		}
+		logMsg("",LOG_COM_OK,$dat,0,$resultcount);
 	}
 	return $result;
 }
@@ -347,7 +339,6 @@ if ($jdata==NULL){
 	logMsg("JSON parse error",LOG_ERR_SYS);endScript();
 }
 $tmpvar=null;
-
 try
 {
 	$db=get_connection(null);
@@ -394,7 +385,7 @@ try
 				{
 					$errorSQL=false;
 					$stmtcom=make_command($dat,'sam',$db);
-					execSQL($stmtcom,$dat,$db);					
+					$dat[JS_RESULTSET]=execSQL($stmtcom,$dat,$db);					
 				}							
 			}
 			catch(Exception $ex)
@@ -408,8 +399,7 @@ try
 }
 catch (PDOException $e)
 {
-	logMsg($e->getMessage(),LOG_ERR_SYS,null,$e->getCode());//
-
+	logMsg($e->getMessage(),LOG_ERR_SYS,null,$e->getCode());
 }
 endScript();
 ?>

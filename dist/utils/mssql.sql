@@ -9,6 +9,7 @@ BEGIN
   DECLARE  @tttt bigint;
   set @tttt=SCOPE_IDENTITY();	
   select @tttt;
+  -- to test 1) delete all 2) select scope...
 END;
 GO
 /* whith return value in var */

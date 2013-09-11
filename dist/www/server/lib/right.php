@@ -484,7 +484,12 @@ function get_connection($table){
    	$connections[$db] = new PDO("{$params['server']}",$params['user'],$params['pass'],$addparams);
    	$connections[$db]->dialect = $params['dialect'];
    	$connections[$db]->setAttribute (PDO::ATTR_ORACLE_NULLS,PDO::NULL_TO_STRING);
-   	$connections[$db]->setAttribute (PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);// exceptions for all errors   	
+   	$connections[$db]->setAttribute (PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);// exceptions for all errors  
+	if ($params['dialect']==="sqlsrv") 
+	{
+		$connections[$db]->setAttribute(PDO::SQLSRV_ATTR_ENCODING, PDO::SQLSRV_ENCODING_UTF8); 	
+		//mb PDO::SQLSRV_ENCODING_BINARY ???
+	}
   }
   return $connections[$db];
 }
