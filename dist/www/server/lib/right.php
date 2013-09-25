@@ -301,7 +301,10 @@ function main_table($cmd) {
 	global $RE_TABLE;
 	$rzlt=array();
 	preg_match($RE_TABLE, $cmd[JS_TABLES],$rzlt);
-  	return $rzlt[1]; //table format checked before!
+    // in sometimes not work (alias in delete)
+    // fix it, @ - it is KOSTYL =)
+  	return @$rzlt[1]; //table format checked before!
+  	
 }
 // return - array {prepared statment & LINK}
 function make_command(&$cmd, $composed_roles,$dbh) {

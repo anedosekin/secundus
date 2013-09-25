@@ -74,16 +74,9 @@ function endScript($isbin=false)
 	global $jresult;
 	global $requestOk;
 	if (!$isbin) header('Content-Type: application/json; charset=utf-8');
-	if ($requestOk)
-	{
-		header("HTTP/1.1 200 Ok");
-	}
-	else
-	{
-		header("HTTP/1.1 400 Bad Request");
-	}
+	if ($requestOk)	header("HTTP/1.1 200 Ok");
+	else header("HTTP/1.1 400 Bad Request");
 	echo json_encode($jresult);
-	error_log("A seichas vse umret");
 	die;
 }
 //------ db prepear ------
@@ -261,8 +254,10 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 			else $stmt->bindValue($num,$bval);
 			$num++;
 		}
+		// vmesto print_r($stmt->queryString); vot tebe
+		logMsg($stmt->queryString,LOG_PRINT,$curcom);
 		if ($stmt->execute())
-		{
+		{			
 			if ($dat[JS_CMDTYPE]==JS_SELECT)
 			{
 			// PDO::SQLSRV_ENCODING_BINARY may be need
@@ -270,14 +265,12 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 				else $result[]= $stmt->fetchAll(PDO::FETCH_NUM);
 				$resultcount=count($result);
 			}
-			else $resultcount=$stmt->rowCount();
-			print_r($stmt->queryString);			
+			else $resultcount=$stmt->rowCount();			
 		}
 		else
 		{
 			if ($prevresult==0) logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$curcom,$stmt->errorInfo()[0]);
 			$errorSQL=true;
-			print_r($stmt->queryString);
 		}	
 	}
 	if (isset($dat[JS_FIELDS]))

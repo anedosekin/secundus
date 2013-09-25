@@ -3,9 +3,9 @@ require_once('cache.php');
 $main_cfg = array(
 		  'cache' => array( 'timeout' => 1, 'local' => true ),
 		  'default_db' => array(
-					'dialect' => 'pgsql',
-					'server'=>'pgsql:host=katia;port=5433;dbname=yoda',
-					'user' => 'serious',
+					'dialect' => 'mysql',
+					'server'=>'mysql:host=localhost;port=3306;dbname=test;',
+					'user' => 'puser',
 					'pass' => '1',
 					)
 		  );
