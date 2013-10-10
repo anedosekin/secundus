@@ -1,0 +1,292 @@
+<script>
+function takeStrings(str, arr) {
+	return str.replace(/'[^']*(''[^']*)*?'/g, function(a) {
+		arr.push(a); return "'"+(arr.length-1)+"'";
+		});
+}
+function takeSubselects(str, arr) {
+	var stack = [];
+	var re = /\(|\)|\bSELECT\b|[^~]*/ig;
+	var out = '';
+	while(a = re.exec(str)) {
+		switch(a[0]) {
+		case '(': stack.push(out.length); break;
+		case 'SELECT': case 'select': case 'Select':
+			stack.push( -stack.pop() ); 
+			break;
+		case ')':
+			var b = stack.pop();
+			if(b<0) {
+				var s = out.substr(-b) + ')';
+				out = out.substr(0,-b);
+				out += '(%'+arr.length;
+				arr.push(s);
+			}
+			break;
+		}
+		out += a[0];
+	}
+	return out;
+}
+
+// keywords -> precedence (0 -> open bracket, text - close bracket of 'text' open bracket)
+//  N - left associative -N - right associative
+var sqlexpr_brackets = {
+	'case': 'case',
+	'end': '~',
+	'(': '()', //specail case (concat with outputed id), if no id, skip funcs gathering and just reorder ops
+	')': '~'
+};
+
+var sqlexpr_splitters = {
+	',': ',',
+	'when': 'when',
+	'else': 'else',
+	'where': 'where',
+	'group by': 'group by',
+	'order by': 'order by',
+	'limit': 'limit'
+};
+
+var sqlexpr_ops = {
+	'*': 32, '/': 32,
+	'+': 31, '-': 31, '||': 31,
+	'like': 20,
+	'not like': 20,
+	'between': 20,
+	'in': 20, 'not in': 20,
+	'<=': 20, '>=': 20, '<>': 20, '=': 20, '<': 20, '>': 20,
+	'is null':15,
+	'is not null': 15,
+	'and': 11,
+	'or' : 10,
+	'then': 5,
+	'as': 4,
+
+	'~exists': 20, '~not exists': 20,
+	'~+': 50, '~-': 50,
+	'~not': 12
+};
+
+var sqlexpr_ops_arity = {
+	'*': 2, '/': 2,
+	'+': 2, '-': 2, '||': 2,
+	'like': 2,
+	'not like': 2,
+	'between': 2,
+	'in': 2, 'not in': 2,
+	'<=': 2, '>=': 2, '<>': 2, '=': 2, '<': 2, '>': 2,
+	'is null':1,
+	'is not null': 1,
+	'and': 2,
+	'or' : 2,
+	'then': 2,
+	'as': 2,
+
+	'~exists': 1, '~not exists': 1,
+	'~+': 1, '~-': 1,
+	'~not': 1
+};
+
+function where_toRPN(str) {
+	str = str.replace(/\s+/g,' ');
+	str = str.replace(/^\s*select\s(.*)$/i,'SELECT ( $1 )');// convert select to function
+	str = str.replace(/\(\s*select\s/ig,'SELECT( ');// convert select to function
+	var re = [];
+	for(var i in sqlexpr_brackets) re.push(i);
+	for(var i in sqlexpr_splitters) re.push(i);
+	for(var i in sqlexpr_ops) re.push(i);
+	re = re.sort(function(a,b) { return b.length-a.length; });
+	re = re.join('|');
+	re = re.replace('||||', '|\\|\\||');
+	re = re.replace('(', '\\(');
+	re = re.replace(')', '\\)');
+	re = re.replace('/', '\\/');
+	re = re.replace(/\+/g, '\\+');
+	re = re.replace('*', '\\*');
+	//console.log(re);
+	re = re.replace(/(^|[|(])([a-z][a-z ]+)(?=[|)])/g, '$1\\b$2\\b');
+	re = re.replace(/ /g, '\\s+');
+	re = new RegExp(re+'|\'[^\']*(\'\'[^\']*)*?\'|\\d+(.\\d*)?|\\?\d*|\(%\\d+\)|[a-z_][a-z0-9_]* ?\\. ?[a-z_][a-z0-9_]*|[a-z_][a-z0-9_]*', 'ig');
+	var stack = [];
+	var out = [];
+	//var out0 = out;
+	
+	function out_f(out, t) {
+		//out.push(t); //just RPN
+		var arity = sqlexpr_ops_arity[t];
+		var x = []; x.op = t;
+		console.log('out', t, arity, out)
+		while(arity--)
+			x.unshift(out.pop());
+		out.push(x);
+		console.log('out-x', t, x, x.op, out, out[0].op)
+	}
+
+	var prefix = true;
+	var e = '';
+	var t = null;
+	var id = false;
+	var x;
+	while(a = re.exec(str)) {
+		var e = a[0];
+		if(e[0] == "'") {
+			out.push(e);
+			id = false;
+			continue;
+		}
+		console.log('inp', e, id, prefix)
+		e = e.toLowerCase();
+		//console.log(e);
+		if(e== '(') {
+			console.log('br', e, out, stack)
+
+			var t = out.pop();
+			if(id && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(t)) {
+				var x = []; x.op = t;
+				out.push(x);
+				stack.push(out);
+				out = x;
+			} else {
+				if(t!==undefined)
+					out.push(t);
+				stack.push(0);
+			}
+			console.log('br.', e, out, stack)
+			prefix = true;
+		} else
+			if(b = sqlexpr_brackets[e]) {
+				if(b == '~') { //close
+					console.log('close', e, out, stack)
+					while((t = stack.pop()) && !t.pop)
+						out_f(out, t);
+					if(t) out = t;
+					prefix = false;
+				} else {
+					var x = []; x.op = b;
+					out.push(x);
+					stack.push(out);
+					out = x;
+					prefix = true;
+				}
+			} else
+			if(b = sqlexpr_splitters[e]) {
+				while((t = stack.pop()) && !t.pop)
+					out_f(out, t);
+				stack.push(t);
+				if(b!=',') {
+					t.push(x = t.pop());
+					out = x[b] || (x[b] = []);
+				}
+				prefix = true;
+			} else
+			if(b = sqlexpr_ops[prefix?'~'+e:e]) {
+				console.log('op', e, out, stack)
+				while( sqlexpr_ops[t = stack.pop()] >= b )
+					out_f(out, t);
+				if(t!==undefined) stack.push(t);
+				stack.push(prefix?'~'+e:e);
+				if(sqlexpr_ops_arity[e]==2)
+					prefix = true;
+			} else {
+				console.log('id', e, out, stack)
+				out.push(e);
+				prefix = false;
+				id = true; 
+				continue;
+			}
+		id = false;
+	}
+	console.log('last', out, stack)
+	while(t = stack.pop())
+		out_f(out, t);
+	console.log('ret', out, stack)
+	return out;
+}
+
+function normalize_not(tree, inv) {
+	var inv_op = {
+		'and' : 'or', 'or': 'and',
+		'=': '<>', '<>': '=', '<=': '>', '>=': '<', '<': '>=', '>': '<=',
+		'in': 'not in', '~exists': '~not exists', 'not in': 'in', '~not exists': '~exists',
+		'is null': 'is not null', 'is not null': 'is null',
+		'like': 'not like', 'not like': 'like'
+	};
+	
+	console.log('!not', tree)
+	if(tree.op === '~not') return normalize_not(tree[0], inv? false: true);
+	if(tree.op === 'and' || tree.op === 'or') {
+		var x = [ normalize_not(tree[0], inv),
+				normalize_not(tree[1], inv) ];
+		x.op = inv? inv_op[tree.op] : tree.op;
+		return x;
+	}
+	if(tree.op === 'then') {
+		var x = [ normalize_not(tree[0], false),
+				normalize_not(tree[1], inv) ];
+		x.op = tree.op;
+		return x;
+	}
+	if(tree.op === 'case') {
+		var x = [];
+		if(tree[0])
+			x[0] = normalize_not(tree[0], false);
+		if(tree.where) { x.where = [];
+			for(var j = 0; j < tree.where.length; ++j)
+				x.where.push(normalize_not(tree.where[j], inv));
+		}
+		if(tree['else'])
+			x['else'] = [normalize_not(tree['else'][0], inv)];
+		return x;
+	}
+	if(tree.pop) {
+		if(op = inv_op[tree.op]) {
+			console.log('transl', tree.op, op)
+			var x = [];
+			x.op = inv? op : tree.op;
+			for(var i = 0; i < tree.length; ++i)
+				x.push(normalize_not(tree[i], false));
+			return x;
+		}
+	}
+	if(inv)
+	{
+		x = [ tree ]; x.op = '~not';
+		return x;
+	}
+	return tree;
+}
+
+function take_strict_filter(tree, arr) {
+	var f;
+	if(tree.op === 'and')
+		{
+			take_strict_filter(tree[0], arr);
+			take_strict_filter(tree[1], arr);
+			return;
+		}
+	if(tree.op === '=')
+		{
+			arr.push(tree[0]+'='+tree[1]);
+			return;
+		}
+	if(tree.op === 'is null')
+		{
+			arr.push(tree[0]+'= null');
+			return;
+		}
+}
+
+//var test =  "case when a then 1 when e then 2 else 3 end and ( f(b,c) or d )";
+//var test =  "case when 1 then 2 end";
+var test = " a = 1 and not (b is null or c <>2 )";
+var s = where_toRPN(test)[0];
+s = normalize_not(s, false);
+var a = []
+take_strict_filter(s, a);
+
+console.log(test);
+console.log(s);
+console.log(a);
+
+</script>

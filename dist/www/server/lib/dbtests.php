@@ -1,5 +1,7 @@
 <?php
 	define ("LINK","http://localhost:8080/lib_link/dbwork.php");
+	header('Content-Type: text/html; charset=utf-8');
+	header("HTTP/1.1 200 Ok");
 	$stopExecOnError=false;
 	
 	define('JS_RESULTSET','RESULTSET');
@@ -73,31 +75,31 @@ EEE
 			$rezt=curl_exec($conn);
 			//echo "<br>";var_dump($rezt);
 			$jsrez=json_decode($rezt,true);	
-			if (!$jsrez) throw new ErrException("Comm:<br>".json_encode($cc)."<br>Resp:<br>".$rezt,"#".$num. " response not parsed. ");
+			if (!$jsrez) throw new ErrException("Comm:<br>".json_encode($cc,JSON_UNESCAPED_UNICODE)."<br>Resp:<br>".$rezt,"#".$num. " response not parsed. ");
 			
 			$com=$jscom['commands'];
 			$tn=$jscom['taskname'];			
 			// idem po rezultatam comandi 
 			$nrez=0;// template result counter			
-			echoRow("#### Task $num: $tn","Task full resp:<br>".json_encode($jsrez),'BLUE');
+			echoRow("#### Task $num: $tn","Task full resp:<br>".json_encode($jsrez,JSON_UNESCAPED_UNICODE),'BLUE');
 			$subrez=$jsrez['result']['commands'];
 			foreach ($subrez as $snum=>$crez)
 			{
 				try {
 				$nnum=$num;
 				if (count($subrez)>1) $nnum="$num.$snum";
-				if ($crez[MSG_EXEC_OK]!==true) throw new ErrException("<br>Resp:<br>".json_encode($crez),"#$nnum  ".$crez['TYPE']." Not pass. Execute error. ");
+				if ($crez[MSG_EXEC_OK]!==true) throw new ErrException("<br>Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),"#$nnum  ".$crez['TYPE']." Not pass. Execute error. ");
 				$ok=true;
 				if (isset($jscom['result'])) 
 				{									
 					if (isset($crez[JS_RESULTSET]))
 					{
 						// ololo compare objects %)
-						$obj1=json_encode($jscom['result'][$nrez]);
-						$obj2=json_encode($crez[JS_RESULTSET]);
+						$obj1=json_encode($jscom['result'][$nrez],JSON_UNESCAPED_UNICODE);
+						$obj2=json_encode($crez[JS_RESULTSET],JSON_UNESCAPED_UNICODE);
 						$nrez++;
 						//echo "<br> obj1:";var_dump($obj1);echo "<br>obj2:";var_dump($obj2);
-						if ($obj1!=$obj2) throw new ErrException ("Resp:<br>".json_encode($crez),"#$nnum  ".$crez['TYPE']." Not pass. Wrong result. Must be: $obj1");
+						if ($obj1!=$obj2) throw new ErrException ("Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),"#$nnum  ".$crez['TYPE']." Not pass. Wrong result. Must be: $obj1");
 					}
 				}
 				}
@@ -108,7 +110,7 @@ EEE
 					if ($stopExecOnError) endScript();
 					$ok=false;					
 				}				
-				if ($ok) echoRow("	#$nnum  ".$crez['TYPE']." Passed. ","Resp:<br>".json_encode($crez),'GREEN');
+				if ($ok) echoRow("	#$nnum  ".$crez['TYPE']." Passed. ","Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),'GREEN');
 			}
 		}
 		catch(ErrException $err)

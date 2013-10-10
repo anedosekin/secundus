@@ -1,5 +1,5 @@
 <?php
-ini_set('display_errors', 'On');
+ini_set('display_errors', 'Off');
 iconv_set_encoding("internal_encoding", "UTF-8");
 iconv_set_encoding("input_encoding", "UTF-8");
 iconv_set_encoding("output_encoding", "UTF-8");
@@ -32,7 +32,137 @@ else print_r("ERRRR!!!");
 //===================================================
 //              FUNCTIONS
 //===================================================
-require_once 'right.php';
+//require_once 'right.php';
+require_once __DIR__.'/and/db-oo.php';
+
+$local_objects_rights =
+cfg_parse_roles(explode("\n", <<<ROLES
+  [LOCAL]
+	.r: all
+	.d: all
+	.u: all
+	.c: all
+ROLES
+));
+
+define('JS_CMDTYPE', 'TYPE');
+define('JS_SELECT', 'SELECT');
+define('JS_INSERT', 'INSERT');
+define('JS_UPDATE', 'UPDATE');
+define('JS_DELETE', 'DELETE');
+define('JS_GENSID', 'GENSID');
+define('JS_RESULTSET','RESULTSET');
+
+define('JS_FIELDS', 'FIELDS');
+
+define('JS_TABLES', 'FROM');
+define('JS_WHERE', 'WHERE');
+define('JS_ORDER', 'ORDER');
+define('JS_GROUP', 'GROUP');
+
+define('JS_LINK', 'LINK');
+define('JS_LINK_DATA','DATA');
+define ('JS_LINK_INC','INSEL');
+define ('JS_LINK_FILE','ISFILE');
+define ('JS_LINK_ADDSID','ADDSID');
+
+function compose_select($cmd, $links = null) {
+	/*
+	 * *
+			 
+	 */
+
+  $flds = array_keys($cmd[JS_FIELDS]);
+  $select = array();
+  // добавлена поддержка FIELDS типа 
+  // "FIELDS":["f1",{"f2 alias":"f2"}]
+  foreach($cmd[JS_FIELDS] as $fld)
+  {
+  	//=>$expr
+  	//if(is_string($expr)) $select[] = "$expr AS $fld";
+  	// если есть вложенный селект, то в нем должны быть филдсы, иначе это филд с алиасом
+  	if(is_string($fld)) $select[] = "$fld";
+  	else if (!isset($fld[JS_FIELDS])) foreach ($fld as $al=>$val) $select[] = "$val AS $al";
+  }
+      
+  $select = implode(', ', $select);
+  
+  $from = $cmd[JS_TABLES];
+  
+  $where = make_where($cmd);
+   
+  if($links) {
+    //hack! replace '?' everywhere in where, it's safe anyway and works if we dont use '?' in our string constants
+    $rpl = explode('?', $where);
+    $rpl = array_map(function($x,$y){ return "$x $y"; }, $rpl, $links);
+    $where = implode(' ', $rpl);
+  }
+  
+  // если WHERE пустой, то не нужно его вставлять
+  if ($where!="") $where=" WHERE ".$where;
+  
+  $gb = isset($cmd[JS_GROUP])? " GROUP BY {$cmd[JS_GROUP]} " : '';
+  $ob = isset($cmd[JS_ORDER])? " ORDER BY {$cmd[JS_ORDER]} " : '';
+  
+  $cmd = "SELECT $select FROM $from $where $gb $ob";
+  
+  
+  return Select($cmd);
+}
+
+function compose_insert($cmd) {
+	$flds = array();
+	foreach($cmd[JS_FIELDS] as $fldpair) {
+		foreach($fldpair as $fld => $expr)
+			$flds[] = $fld;
+	}
+	$vals = array_pad(array(), count($flds), "?");
+	$flds = implode(', ', $flds);
+	$vals = implode(', ', $vals);
+	$main_table = $cmd[JS_TABLES];
+	$cmd = "INSERT INTO $main_table ($flds) VALUES ($vals)";
+	return Insert($cmd);
+}
+
+function compose_delete($cmd) {
+	$where =  make_where($cmd);
+	$from = $cmd[JS_TABLES];
+	$cmd = "DELETE FROM $from WHERE $where";
+	return Delete($cmd);
+}
+
+function compose_update($cmd, $dbh) {
+	$set = array();
+	foreach($cmd[JS_FIELDS] as $fldpair) {
+		foreach($fldpair as $fld => $expr)
+			$set[] = "$fld = $expr";
+	}
+	$set = implode(', ', $set);
+	$from = $cmd[JS_TABLES];
+	$where = make_where($cmd);
+	$cmd = "UPDATE $from SET $set WHERE $where";
+	return Update($cmd);
+}
+
+
+function make_where($cmd) {
+	$w1 = array();
+	if (isset($cmd[JS_WHERE]))
+		foreach($cmd[JS_WHERE] as $part)
+		if(is_string($part)) $w1[] = $part;
+	else compose_select_or_insert($part, $dbh, $part[JS_LINKS]);
+	$where = implode('', $w1);
+	return $where;
+}
+
+function make_command($cmd){
+	if($cmd[JS_CMDTYPE] == JS_SELECT) return compose_select($cmd);
+	if($cmd[JS_CMDTYPE] == JS_INSERT) return compose_insert($cmd);
+	if($cmd[JS_CMDTYPE] == JS_UPDATE) return compose_update($cmd);
+	if($cmd[JS_CMDTYPE] == JS_DELETE) return compose_delete($cmd);
+}
+
+
 //===================================================
 function testUTF($tst)
 {
@@ -279,7 +409,7 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 		{
 			if (isset($fld[JS_CMDTYPE]))
 			{
-				$nextstmt=make_command($fld,'sam',$db);
+				$nextstmt=make_command($fld);
 				$rz=execSQL($nextstmt, $fld, $db, $result,$dat[JS_FIELDS]);
 				//echo "\n";print_r($result[$j]);echo "\n";print_r($result[$j]);
 				foreach ($result as $j => &$res) array_splice($res,$numforresult,0, [$rz[$j]] );
@@ -377,7 +507,7 @@ try
 				if ($dat[JS_CMDTYPE]!=JS_GENSID)
 				{
 					$errorSQL=false;
-					$stmtcom=make_command($dat,'sam',$db);
+					$stmtcom=make_command($dat);
 					$dat[JS_RESULTSET]=execSQL($stmtcom,$dat,$db);					
 				}							
 			}
