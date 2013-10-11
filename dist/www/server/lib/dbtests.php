@@ -1,12 +1,18 @@
 <?php
-	define ("LINK","http://localhost:8080/lib_link/dbwork.php");
-	header('Content-Type: text/html; charset=utf-8');
+	ini_set('display_errors', 'On');
+	date_default_timezone_set('Europe/Moscow');
+	
 	header("HTTP/1.1 200 Ok");
+	header('Content-Type: text/html; charset=utf-8');	
 	$stopExecOnError=false;
+	if (!defined ('JSON_UNESCAPED_UNICODE') ) define ('JSON_UNESCAPED_UNICODE', 256);// fix win bug
 	
 	define('JS_RESULTSET','RESULTSET');
 	define ("MSG_EXEC_OK","SUCCESS");
-	define ("MSG_ROW_COL","ROWS");	
+	define ("MSG_ROW_COL","ROWS");
+	
+	if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') define ("LINK","http://localhost:/dbwork.php");
+	else define ("LINK","http://localhost:8080/lib_link/dbwork.php");
 	
 	class ErrException extends Exception
 	{
@@ -17,9 +23,6 @@
 	        parent::__construct($message, $code, $previous);
 		}
     } 
-	
-	ini_set('display_errors', 'On');	
-
 	$conn = curl_init();
 	$idc=0;
 
