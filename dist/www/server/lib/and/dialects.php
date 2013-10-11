@@ -39,66 +39,66 @@ $type_translations_db_to_internal = array(
 function replace_dbspecific_funcs($cmd, $dialect) {
 	static $repl = [
 		'pgsql'=> [[],[]],
-		'oracle'=> [[],[]],
-		'mssql'=> [['||'],["+''+"]],
+		'oci'=> [[],[]],
+		'sqlsrv'=> [['||'],["+''+"]],
 		'mysql'=> [[],[]],
 	];
 	static $fdef = [
-		'LN' => [ 'mssql' => 'LOG' ],
-		'TRUNC' => [ 'pgsql' => 'TRUNC', 'oracle' => 'TRUNC', 'mssql' => 'ROUND$1$2,1$3', 'mysql' => 'TRUNCATE' ],
+		'LN' => [ 'sqlsrv' => 'LOG' ],
+		'TRUNC' => [ 'pgsql' => 'TRUNC', 'oci' => 'TRUNC', 'sqlsrv' => 'ROUND$1$2,1$3', 'mysql' => 'TRUNCATE' ],
 		'YEAR' => [ 'pgsql' => "DATE_PART$1'year',$2$3", 
-				'oracle' => 'EXTRACT$1year FROM $2$3', 
-				'mssql' => 'YEAR', 
+				'oci' => 'EXTRACT$1year FROM $2$3', 
+				'sqlsrv' => 'YEAR', 
 				'mysql' => 'YEAR' ],
 		'MONTH' => [ 'pgsql' => "DATE_PART$1'month',$2$3", 
-				'oracle' => 'EXTRACT$1month FROM $2$3', 
-				'mssql' => 'MONTH', 
+				'oci' => 'EXTRACT$1month FROM $2$3', 
+				'sqlsrv' => 'MONTH', 
 				'mysql' => 'MONTH' ],
 		'DAY' => [ 'pgsql' => "DATE_PART$1'day',$2$3", 
-				'oracle' => 'EXTRACT$1day FROM $2$3', 
-				'mssql' => 'DAY', 
+				'oci' => 'EXTRACT$1day FROM $2$3', 
+				'sqlsrv' => 'DAY', 
 				'mysql' => 'DAY' ],
 		'DATE_TO_MONTHS' => [ 
 				'pgsql' => "TO_CHAR$1$2,'yyyy-mm'$3", 
-				'oracle' => "TO_CHAR$1$2,'yyyy-mm')$3", 
-				'mssql' => "LEFT$1CONVERT<varchar,$2,120),7$3", 
+				'oci' => "TO_CHAR$1$2,'yyyy-mm')$3", 
+				'sqlsrv' => "LEFT$1CONVERT<varchar,$2,120),7$3", 
 				'mysql' => "DATE_FORMAT$1$2,'%Y-%m'$3" ],
 		'MONTHS_BETWEEN' => [
 				'pgsql' => 
 						"$1 SELECT DATE_PART('year', mbw.d1)*12 + DATE_PART('month', mbw.d1) - DATE_PART('year', mbw.d2)*12 - DATE_PART('month', mbw.d2) FROM ( SELECT $2 AS d1 $3 $4 AS d2 ) mbw $5",
-				'oracle' => "MONTH_BETWEEN$1 TRUNC($2,'month') $3 TRUNC($4,'month') $5",
-				'mssql' => "DATEDIFF$1month, $4 $3 $2 $5",// --chage order
+				'oci' => "MONTH_BETWEEN$1 TRUNC($2,'month') $3 TRUNC($4,'month') $5",
+				'sqlsrv' => "DATEDIFF$1month, $4 $3 $2 $5",// --chage order
 				'mysql' => "PERIOD_DIFF$1 date_format($2, '%Y%m') $3 date_format($4, '%Y%m') $5",
 				],
 		'DAYS_BETWEEN' => [
 				'pgsql' => 
 						"DATE_PART$1'day',($2)::TIMESTAMP - ($4)::TIMESTAMP $5",
-				'oracle' => "$1 TRUNC($2) - (TRUNC($4) $5",
-				'mssql' => "DATEDIFF$1day, $4 $3 $2 $5",// --chage order
+				'oci' => "$1 TRUNC($2) - (TRUNC($4) $5",
+				'sqlsrv' => "DATEDIFF$1day, $4 $3 $2 $5",// --chage order
 				'mysql' => "DATEDIFF$1$2$3$4$5",
 				],
 		'ADD_DAYS' => [
 				'pgsql' => "$1 ($2) + INTERVAL $4 DAY$5",
-				'oracle' => "$1 ($2) + INTERVAL $4 DAY$5",
-				'mssql' => "DATEADD$1day, $4 $3 $2 $5",// --chage order
+				'oci' => "$1 ($2) + INTERVAL $4 DAY$5",
+				'sqlsrv' => "DATEADD$1day, $4 $3 $2 $5",// --chage order
 				'mysql' => "$1 ($2) + INTERVAL $4 DAY$5",
 				],
 		'ADD_MONTHS' => [
 				'pgsql' => "$1 ($2) + INTERVAL $4 MONTH$5",
-				'oracle' => "$1 ($2) + INTERVAL $4 MONTH$5",
-				'mssql' => "DATEADD$1month, $4 $3 $2 $5",// --chage order
+				'oci' => "$1 ($2) + INTERVAL $4 MONTH$5",
+				'sqlsrv' => "DATEADD$1month, $4 $3 $2 $5",// --chage order
 				'mysql' => "$1 ($2) + INTERVAL $4 MONTH$5",
 				],
 		'NOW' => [ //with timezone, if possible!
 				'pgsql' => "CURRENT_TIMESTAMP",
-				'oracle' => "CURRENT_TIMESTAMP",
-				'mssql' => "CURRENT_TIMESTAMP",
+				'oci' => "CURRENT_TIMESTAMP",
+				'sqlsrv' => "CURRENT_TIMESTAMP",
 				'mysql' => "CURRENT_TIMESTAMP",
 				],
 		'TODAY' => [ 
 				'pgsql' => "CURRENT_DATE",
-				'oracle' => "CURRENT_DATE ", //servel local
-				'mssql' => "CAST(CURRENT_TIMESTAMP AS DATE)", //servel local
+				'oci' => "CURRENT_DATE ", //servel local
+				'sqlsrv' => "CAST(CURRENT_TIMESTAMP AS DATE)", //servel local
 				'mysql' => "CURRENT_DATE", //server local
 				],
 	];
@@ -157,10 +157,18 @@ class dbspecific_select {
 function make_dbspecific_select($cmd, $parsed, $dialect) {
 	$sel = $parsed;
 	switch($dialect) {
-		case 'oracle': 
+		case 'oci': 
 		  if(isset($parsed->LIMIT)) {
 		    $l = $parsed->LIMIT; $parsed->LIMIT = '';
 		    $sel = "SELECT * FROM ( $parsed ) WHERE ROWNUM <= $l";
+	 	    $parsed->LIMIT = $l;
+		  }
+		  break;
+		case 'sqlsrv': 
+		  if(isset($parsed->LIMIT)) {
+		    $l = $parsed->LIMIT; $parsed->LIMIT = '';
+		    $sel = (string)$parsed;
+			$sel = str_replace('SELECT ', "SELECT TOP $l ", $sel); 
 	 	    $parsed->LIMIT = $l;
 		  }
 		  break;
@@ -194,7 +202,7 @@ function make_dbspecific_insert_from_select($parsed, $sel, $dialect) {
 }
 
 function make_dbspecific_select_values($cmd, $dialect) {
-  if($dialect == 'oracle') return 'SELECT '.$cmd.' FROM DUAL';
+  if($dialect == 'oci') return 'SELECT '.$cmd.' FROM DUAL';
   return 'SELECT '.$cmd;
 }
 
@@ -208,7 +216,7 @@ function make_dbspecific_update($parsed, $dialect) {
 		  $ret = "UPDATE $main_table xx SET $parsed->SET FROM $parsed->UPDATE WHERE xx.* = $alias.*"
 		    .(@$parsed->WHERE? " AND ( $parsed->WHERE )":'');
 		  break;
-		case 'oracle':
+		case 'oci':
 		  //UPDATE t SET f = v WHERE c ==> UPDATE (SELECT a1.*, v AS xx__f WHERE c) SET f = xx__f
 		  // NOTE: this KEEP order of placeholders (should be SET before WHERE)
 		  $lst = preg_split("/(?:^|,)\s*($RE_ID)\s*=/", $parsed->SET, 
@@ -222,13 +230,19 @@ function make_dbspecific_update($parsed, $dialect) {
 		  $exprs = strlist($exprs);
 		  $ret = "UPDATE (SELECT $alias.*, $exprs FROM $parsed->UPDATE $parsed->_WHERE) SET $set";
 		  break;
-		case 'mssql': $ret = "UPDATE $alias $parsed->_SET FROM $parsed->UPDATE$parsed->_WHERE"; break;
+		case 'sqlsrv': $ret = "UPDATE $alias $parsed->_SET FROM $parsed->UPDATE$parsed->_WHERE"; break;
 		case 'mysql': 
 		  // we need return aliases back!
 		  $parsed->SET = preg_replace("/(^|,)\s*($RE_ID)\s*=/", "$1 $alias.$2 =", $parsed->SET);
 		  $ret = "$parsed->_UPDATE$parsed->_SET$parsed->_WHERE"; 
 		  break;
 		}
+	} else
+	if($dialect === 'sqlsrv') {
+		//mysql use special syntax even for delete from one table only
+		// and don't allow use aliases, but we need
+		// so, convert it to multitable case
+		$ret = "UPDATE $alias $parsed->_SET FROM $parsed->UPDATE $parsed->_WHERE";
 	}
 	return replace_dbspecific_funcs($ret, $dialect);
 }
@@ -240,13 +254,13 @@ function make_dbspecific_delete($parsed, $dialect) {
 			$ret = "DELETE $main_table xx FROM $from WHERE xx.* = $alias.*"
 					.(@$parsed->WHERE? " AND ( $parsed->WHERE )":'');
 			break;
-		case 'oracle': 
+		case 'oci': 
 			$ret = "DELETE FROM (SELECT $alias.* FROM $from $parsed->_WHERE)"; break;
-		case 'mssql': $ret = "DELETE $alias FROM $from $parsed->_WHERE"; break;
+		case 'sqlsrv': $ret = "DELETE $alias FROM $from $parsed->_WHERE"; break;
 		case 'mysql': $ret = "DELETE $alias FROM $from $parsed->_WHERE"; break;
 		}
 	} else
-	if($dialect === 'mysql') {
+	if($dialect === 'mysql' || $dialect === 'sqlsrv') {
 		//mysql use special syntax even for delete from one table only
 		// and don't allow use aliases, but we need
 		// so, convert it to multitable case

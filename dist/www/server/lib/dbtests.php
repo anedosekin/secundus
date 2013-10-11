@@ -58,12 +58,26 @@ EEE
 		echo "</table></html>";
 		die;
 	}	
+	$block_echo=false;
+	function getEcho($jsrez)
+	{
+		global $echnum;
+		global $block_echo;
+		$echorez="";
+		if (!$block_echo)
+		{
+			if (isset($jsrez['echo'][$echnum])) $echorez="<br>Echo:<br>".$jsrez['echo'][$echnum];
+			$echnum++;
+		}
+		else $block_echo=false;
+		return $echorez;
+	}
 	curl_setopt($conn, CURLOPT_URL, LINK);
 	curl_setopt($conn, CURLOPT_POST, 1);	
 	curl_setopt($conn, CURLOPT_RETURNTRANSFER, 1);
 	
 	include 'testcases.php';// add $comlist[], array of command string arrays
-	
+	$echnum=0;
 	foreach($comlist as $num=>$cc)
 	{
 		// dont panic, some magic =)))		
@@ -86,9 +100,11 @@ EEE
 			$nrez=0;// template result counter			
 			echoRow("#### Task $num: $tn","Task full resp:<br>".json_encode($jsrez,JSON_UNESCAPED_UNICODE),'BLUE');
 			$subrez=$jsrez['result']['commands'];
+			$echnum=0;
 			foreach ($subrez as $snum=>$crez)
-			{
+			{				
 				try {
+				if ($crez['TYPE']=='GENSID') $block_echo=true;
 				$nnum=$num;
 				if (count($subrez)>1) $nnum="$num.$snum";
 				if ($crez[MSG_EXEC_OK]!==true) throw new ErrException("<br>Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),"#$nnum  ".$crez['TYPE']." Not pass. Execute error. ");
@@ -102,6 +118,7 @@ EEE
 						$obj2=json_encode($crez[JS_RESULTSET],JSON_UNESCAPED_UNICODE);
 						$nrez++;
 						//echo "<br> obj1:";var_dump($obj1);echo "<br>obj2:";var_dump($obj2);
+						
 						if ($obj1!=$obj2) throw new ErrException ("Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),"#$nnum  ".$crez['TYPE']." Not pass. Wrong result. Must be: $obj1");
 					}
 				}
@@ -109,17 +126,17 @@ EEE
 				catch(ErrException $err)
 				{
 					//echo "<pre>";var_dump($jscom);
-					echoRow($err->header,$err->getMessage());
+					echoRow($err->header,$err->getMessage().getEcho($jsrez));
 					if ($stopExecOnError) endScript();
 					$ok=false;					
 				}				
-				if ($ok) echoRow("	#$nnum  ".$crez['TYPE']." Passed. ","Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE),'GREEN');
+				if ($ok) echoRow("	#$nnum  ".$crez['TYPE']." Passed. ","Resp:<br>".json_encode($crez,JSON_UNESCAPED_UNICODE).getEcho($jsrez),'GREEN');
 			}
 		}
 		catch(ErrException $err)
 		{
-		//echo "<pre>";var_dump($jscom);
-			echoRow($err->header,$err->getMessage());
+		//echo "<pre>";var_dump($jscom);			
+			echoRow($err->header,$err->getMessage().getEcho($jsrez));
 			if ($stopExecOnError) endScript();
 		}
 	}	

@@ -10,6 +10,11 @@ $main_cfg = array(
 					)
 		  );
 		  
+[default_db]
+server="mysql:host=localhost;port=3306;dbname=test;"
+user=puser
+pass=1
+		  
 mssql
 
 $main_cfg = array(
@@ -21,6 +26,11 @@ $main_cfg = array(
 					'pass' => '1',
 					)
 		  );
+		  
+[default_db]
+server="sqlsrv:Server=SHUMSKY-XC-O3\SQLEXPRESS;Database=tst;ConnectionPooling=true;MultipleActiveResultSets=true;QuotedId=true;"
+user=puser
+pass=1
 		  
 pgsql
 
@@ -34,6 +44,11 @@ $main_cfg = array(
 					)
 		  );
 		  
+[default_db]
+server="pgsql:host=katia;port=5433;dbname=yoda"
+user=serious
+pass=1
+		  
 Oracle
 
 $main_cfg = array(
@@ -45,3 +60,7 @@ $main_cfg = array(
 					'pass' => '1',
 					)
 		  );
+		  
+server="oci:host=127.0.0.1;port=1521;dbname=XE"
+user=puser
+pass=1
