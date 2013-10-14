@@ -130,7 +130,8 @@ class _fromItem {
     return $this->node? 
       ($this->op && $this->node->childs? "$this->op ( $this->node )" :
         $this->op . ' '. $this->node)
-    : trim("$this->op $this->tbl $this->alias $this->tail");
+    //: trim("$this->op $this->tbl $this->alias $this->tail"); //strange! when we have tbl and tail together? example needed!
+    : trim("$this->op$this->tail");
   }
 }
 
@@ -188,9 +189,10 @@ class _Cmd extends _PreCmd {
 
   function parse_joins($from) {
     global $RE_ID;
-    static $RE_JOIN = '((LEFT|RIGHT|FULL) )?((OUTER|INNER) )?JOIN|ON';
+    static $RE_JOIN = 'LEFT OUTER JOIN|LEFT INNER JOIN|LEFT JOIN|RIGHT OUTER JOIN|RIGHT INNER JOIN|RIGHT JOIN|FULL OUTER JOIN|JOIN|ON';
     $a = preg_split("/ ($RE_JOIN) /i",
       $from, null, PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
+    //var_dump($from, $a);
     $aout = [];
     $op = '';
     $tblpart = "($RE_ID|\(%[0-9]+\))"; //id or packed select
@@ -199,16 +201,17 @@ class _Cmd extends _PreCmd {
         if(preg_match("/^$RE_JOIN$/i", $part)) 
         { $op = strtoupper($part); continue; }
         //echo "\n2",$part;
-        if(!preg_match("/^\s*$tblpart(\s+$RE_ID)?(\s*,\s*$tblpart(\s+$RE_ID)?)*\s*$/", $part))
+        if(!preg_match("/^\s*(?:\(\s*)?$tblpart(\s+$RE_ID)?(\s*,\s*$tblpart(\s+$RE_ID)?)*\s*$/", $part))
           throw new Exception("Bad from cause $from // $part : unmatch <$tblpart>");
-        preg_match_all("/(?:^|,)\s*$tblpart(?:\s+($RE_ID))?/", $part, $m);
+        preg_match_all("/(^|,|\()\s*$tblpart(?:\s+($RE_ID))?/", $part, $m);
         //echo $part;
-        foreach($m[1] as $i => $t) {
+        foreach($m[2] as $i => $t) {
           $aout[] = $x = new _fromItem;
           $x->op = $op;
+          if($m[1][$i] == '(') $x->op .= $x->op ? ' (' : '(';
           $x->tbl = $t;
-          $x->alias = @$m[2][$i] ?: '';
-          //echo "\n{$m[1][$i]} ---> {$m[2][$i]}";
+          $x->alias = @$m[3][$i] ?: '';
+          //echo "\n{$m[2][$i]} ---> {$m[3][$i]}";
           $op = ',';
         }
       } else {
@@ -219,7 +222,7 @@ class _Cmd extends _PreCmd {
         $op = '';
       }
     }
-    //var_dump($a);
+    //var_dump($aout);
     return $aout;
   }
 
@@ -404,6 +407,7 @@ class _Cmd extends _PreCmd {
     global $RE_ID, $RE_FULL_ID, $RE_ID_DONE;
     global $Tables, $INSERT_STRUCT_VALUES, $INSERT_STRUCT_SELECT, $SELECT_STRUCT;
     
+    //var_dump($s);
     $parsed = new parsedCommand($INSERT_STRUCT_VALUES, $s);
     if(!@$parsed->VALUES)
       $parsed = new parsedCommand($INSERT_STRUCT_SELECT, $s);
@@ -415,9 +419,11 @@ class _Cmd extends _PreCmd {
     $into = $parsed->{'INSERT INTO'};
     
     // speedy dirty variant, we recompose later, so it's safe!
-    preg_match_all($RE_ID_DONE, $into, $m);
+    if(!preg_match("/\s*($RE_ID)(\s+$RE_ID)?\s*\((.*)\)/", $into, $m))
+      throw new Exception("this is not a INSERT INTO part: <$into>");
+    $table = $m[1]; // we ignore alias.... for now? why? what it means?
+    preg_match_all($RE_ID_DONE, $m[3], $m);
     $fields = $m[0]; 
-    $table = array_shift($fields); //first id is a table! ex.: insert into table (f1, f2) ...
     $this->set_dialect($table);
 
     /* common case to check rights

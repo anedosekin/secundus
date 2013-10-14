@@ -85,6 +85,8 @@ var rez = {
 		}
 		//from
 		sql.FROM = X.sql.collectJoins(table_node, sql.LINK);
+		//if(sql.FROM.match(/^\((.*)\)$/))
+		//	sql.FROM = RegExp.$1;
 		//where
 		sql.WHERE = [];
 		if(filter) {

@@ -189,7 +189,7 @@
 	interval: 1000,
 	timeout: 10*1000,
 	generateAllKeys: true,
-	logPhpMessage: false
+	logPhpMessage: true
 }
 X.server = (function(env) {
 	return {
@@ -218,12 +218,11 @@ X.server = (function(env) {
 				}
 			}
 			*/
+			if(env.logPhpMessage)
+				console.log('PHP ANSWER:'+data);
 			var re = /\{"result":.*$/g;
 			if(answer = data.match(re)) {
 				var warning;
-				if(env.logPhpMessage)
-					if(warning = data.replace(re,"").replace(/\s+$/g,"")) 
-						console.log(warning);
 				var ansObj = JSON.parse(answer[0]);
 				if(ansObj.errors) 
 					throw ansObj.errors;
@@ -245,6 +244,3 @@ X.server = (function(env) {
 		}
 	}
 })(X.DBdefaultEnv);
-X.utils = (function(env) {
-	
-})(X.DBdefaultEnv)

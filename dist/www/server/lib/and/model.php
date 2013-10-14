@@ -372,9 +372,15 @@ $tst = new modelParser(<<<MP
 
 	QUERY UnnamedPersons 'SELECT * FROM Persons WHERE fio = ''-'' ' (=Persons)
 	
-	TABLE rmn_exp ( id DEICMAL PK )
+	TABLE rmn_exp ( id DECIMAL PK )
 		
-	TABLE rmn_insel ( id DEICMAL PK )
+	TABLE rmn_insel ( id DECIMAL PK )
+
+	TABLE streets ( city_id VARCHAR PK, street_name VARCHAR PK, street_population DECIMAL )
+	TABLE cities ( id VARCHAR PK, city_name VARCHAR, country VARCHAR)
+	TABLE countries ( country_name VARCHAR PK, country VARCHAR)
+	TABLE buildings (id VARCHAR PK, street_name VARCHAR, city_id VARCHAR, building_number DECIMAL)
+	TABLE mailoffices ( office_name VARCHAR PK, building VARCHAR)
 MP
 );
 
