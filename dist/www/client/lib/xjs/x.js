@@ -46,6 +46,14 @@ function G_regEvent(name, phase, f) {
 	if (obj.addEventListener) obj.addEventListener(name, freg, phase);
 	else if( obj.attachEvent ) obj.attachEvent('on'+(name==='focus'?'focusin':name), freg);
 }
+X.defer = function(fn) {
+	var df = X.new_defer();
+	X.asyncCall( function() { 
+		try { df.resolve(fn()) }
+		catch(err) { df.reject(err) }
+	});
+	return df.promice;
+}
 X.throttle = function(func, wait) {
 	var context, args, timeout, result;
 	var previous = 0;
@@ -63,7 +71,7 @@ X.throttle = function(func, wait) {
 			clearTimeout(timeout);
 			timeout = null;
 			previous = now;
-			result = func.apply(context, args);
+			result = setTimeout(later, 0);
 		} else if (!timeout) {
 			timeout = setTimeout(later, remaining);
 		}

@@ -16,7 +16,7 @@ var metaModel = patchModel({
 	streets:{
 		city_id:{caption:'Город',
 			target:'cities',
-			condition:[{target:'id',point:'city_id'}],
+			condition:[{point:'city_id', target:'id'}],
 			pk:true
 		},
 		street_name:{caption:'Название', pk:true},
@@ -25,6 +25,12 @@ var metaModel = patchModel({
 			caption:'Почтовое отделение',
 			target:'mailoffices',
 			condition:[{point:'mail_service', target:'office_name'}]
+		},
+		buildings:{
+			caption:'Дома',
+			target:'buildings',
+			condition:[{target:'street_name',point:'street_name'},{target:'city_id', point:'city_id'}],
+			array:'auto'
 		}
 	},
 	cities:{
@@ -33,12 +39,12 @@ var metaModel = patchModel({
 		capital:{caption:'Столичный город'},
 		streets:{caption:'Улицы',
 			target:'streets',
-			condition:[{target:'id',point:'city_id'}],
+			condition:[{point:'city_id', target:'id'}],
 			array:'auto'
 		},
 		country:{caption:'Страна',
 			target:'countries', 
-			condition:[{target:'country_name',point:'country'}]
+			condition:[{point:'country',target:'country_name'}]
 		}
 	},
 	countries:{
@@ -49,7 +55,7 @@ var metaModel = patchModel({
 		},
 		cities:{caption:'Города',
 			target:'cities',
-			condition:[{target:'country', point:'country_name'}],
+			condition:[{point:'country', target:'country_name'}],
 			array:'auto'
 		}
 	},

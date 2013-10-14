@@ -5,79 +5,71 @@
 	peek: function(elm) { return elm.peek() },
 	read: function(elm) { return elm() },
 	//write to observable or observableArray
-	write:function(elm, value) { elm(value) },
-	writeRecord: function(node, value) {
-		var usage = [];
-		X.modelBuilder.collectUsage(node, usage);
-		if(value && usage.length!=value.length) 
-			return this.writeSelectError('unused data from select');
-		//TODO: server answer value length may be greater than usage. should check it and alert
-		for(i = 0;i < usage.length; ++i) {
-			var elem = this.oko(usage[i].elem);
-			var data = value ? value[i] : "";
-			if(this.isMulti(elem)) {
-				this.writeArray(elem, data);
-			} else {
-				data = X.isEmpty(data) ? "" : data;
-				elem.dbvalue(data);
-				this.write(elem, data);
-				elem.sync( true );
-			}
-		}
-		//node.ready(true);
+	write: function(elm, value) {
+		value = X.isEmpty(value) ? "" : value;
+		elm(value);
 	},
-	writeArray: function(container, value) {
-		if(value)
-			for(var i = 0;i < value.length;++i) {
-				var node = X.modelBuilder.appendElement(container);
-				this.writeRecord(node, value[i]);
-			}
-		container.sync(true);
-	},
-	isChanged:function(elm) {
-		return this.peek(elm) !== this.peek(elm.dbvalue);
+	isChanged:function(elm) {//doesnt generate any subscriptions
+		return this.peek(elm) !== this.peek(elm.dbvalue).value;
 	},
 	//mark observable as it has error when data came from server
 	//(usuccessfull try to write data)
-	writeSaveError: function(elm, err) { alert('Save error:'+err); /*or set attribute!*/ },
+	writeSaveError: function(elm, err) { alert('Update/Insert error:'+err); /*or set attribute!*/ },
 	writeSelectError: function(elm, err) { alert('Select error:'+err); },
 	//check if this observable bound to something (need to be read)
 	used: function(elm) {
 		return elm.$ && elm.getSubscriptionsCount && elm.getSubscriptionsCount(); 
 	},
 	//check if this observable bound to input or can be changed somehow else
-	makeUpdatable:function(elm) {
-		elm.boundAsUpdatable = true;
-	},
 	boundAsUpdatable: function(elm) { 
 		return elm.boundAsUpdatable
+	},
+	selectableNode: function(node) {
+		return node.selectableNode
 	},
 	makeUse:function(elm) {
 		ko.utils.unwrapObservable(elm);
 	},
 	//make observable with name in container using fielddef as description
 	makeElement: function(container, name, fielddef) {
-		var c = ko.observable();
+		var env = this;
+		var c = ko.observable("");
 		if(fielddef.extend)
 			for(var i=0;i<fielddef.extend.length;++i)
 				c = c.extend(fielddef.extend[i]);
 		container[name] = c;
 		c.$ = fielddef;
-		c.parent = container.joins ? container.parent : container;
-		c.dbvalue = ko.observable();
-		c.sync = ko.observable( false );//sync with db
-		c.keys = []; //within conditions of those keys
+		c.node = container.joins ? container.node : container;
+		c.root = container.root || container.element && container.element().root || c;
+		c.dbvalue = ko.observable({ value: "" });
+		c.get_name = function() {//sql-I
+			return this.$.name
+		}
+		c.write = function( value ) {//sql-I
+			value = X.isEmpty(value) ? "" : value;
+			env.write( this.dbvalue, { value: value, update: false } )
+			env.write( this, value );
+		}
+		c.update = function(value) {//sql-I
+			value = X.isEmpty(value) ? "" : value;
+			env.write( this.dbvalue, { value: value, update: true } )
+			env.write( this, value );
+		}
+		c.update_back = function() {//sql-I
+			env.write( this, env.read( this.dbvalue).value );
+		}
+		c.update_similar = function( value ) {//sql-I
+			env.updateSimilar(this, value);
+		}
 	},
 	isField:function(elm) {return elm.$},
-	isMulti:function(elm) {return elm.addNewLine },
+	isNode:function(elm) { return elm.element },
+	isRel:function(elm) { return elm.joins },
+	isMulti:function(elm) {return elm.append },
 	//convert element (made with makeElement) to writable one (which is able to send itself to server)
-	convertToUpdatable: function(elm) {
+	convertToUpdatable: function( elm ) {
 		elm.subscribe(function() {
 			if(this.isChanged(elm)) {
-				elm.sync( false );
-				for(var i=0;i < elm.keys.length;++i) {
-					elm.keys[i].refresh();
-				}
 				elm.sendToServer();
 			}
 		}, this);
@@ -90,16 +82,15 @@
 			c.joins = {};
 			c.$ = fielddef;
 			c.$$ = fielddef.target;
-			c.parent = container;
+			c.node = container;
+			c.root = container.root || container.element && container.element().root || c;
+			c.filter = null;
 			X.DBdefaultEnv.makeElement(c, '_value', fielddef); //observable = rel value (as field value)
-			/*c.sync = function(val) {//there is no purpose to make relation sync usable in interface
-				X.DBdefaultEnv.oko(c).sync(false);
-				for(var i in c.joins) {
-					var node = c.joins[i];
-					for(var j in node)
-						if(node[j] && node[j].$)
-							node[j].sync(false)
-				}
+			/*c.get_filters = function() {
+				var f = [];
+				for(var i in c.joins)
+					f.push(c.joins[i].filter)
+				return f;
 			}*/
 			/*c.refresh = function() {
 				for(var i in c.joins) {
@@ -115,35 +106,76 @@
 	},
 	makeArray: function(container, name, def) {
 		//making subitems and main array - mix
-		var env = this;
 		var c = container[name] = ko.observableArray();
 		c.$ = def;
 		c.$$ = def.target || def;
-		c.parent = container;
+		c.node = container;
+		c.root = container.root || container.element && container.element().root || c;
 		c.auto = def.array && def.array.indexOf('auto')==0;
 		c.defer = def.array && def.array.indexOf('defer')==0;
-		c.sync = ko.observable(false);
+		c.filter = null;
 		c.refresh = function() {
-			c.sendSelect();
+			c.sendSelect( c.filter.current() );
 		}
-		c.sendSelect = function() {
-			c.sync(false);
-			X.Select.sendSelect({ target: c });
+		c.sendSelect = function( filter ) {
+			var node = X.modelBuilder.appendElement( c );
+			var s = X.sql.makeSelect( node, filter );
+			s && X.Q.async.send( s.sql, c )
+			c.remove( node );
 		}
-		c.addNewLine = function() {
-			X.modelBuilder.appendElement(c);
+		c.append = function() {//sql-I
+			var fields = [];
+			var node = X.modelBuilder.appendElement( c );
+			X.modelBuilder.collectUsage(node, fields);
+			return fields;
+		}
+		c.before_fill = function() {//sql-I
+			c.removeAll();
+		}
+	},
+	updateSimilar: function( c_elm, value ) {
+		if(c_elm.key && c_elm.key.values) {
+			var env = this;
+			function compare( elm ) {
+				if( elm.key && elm.key.values) {
+					if(	elm.node.$$.name == c_elm.node.$$.name &&
+						elm.$.name == c_elm.$.name &&
+						elm.key.values.hash == c_elm.key.values.hash) 
+					{
+						elm.update( value );
+					}
+				}
+			}
+			function trace_node(node) {
+				for(var i in node) {
+					node[i] && env.isField(node[i]) && trace_elm( node[i] );
+				}
+			}
+			function trace_elm(elm) {
+				if( env.isMulti(elm) ) {
+					for(var i=0;i<elm().length;++i)
+						trace_node(elm()[i])
+				} else
+				if( env.isRel(elm) ) {
+					for(var i in elm.joins) 
+						trace_node(elm.joins[i])
+					compare( env.oko( elm ) );
+				} else
+				if( env.isField(elm) )
+					compare( elm );
+			}
+			trace_elm( c_elm.root );
 		}
 	},
 	makeRecord: function(def) {
-		var env = this;
 		var c = new X.modelBuilder.tableNode(def);
 		c.$ = def;
-		c.sendSelect = function() {
+		/*c.sendSelect = function() {
 			//c.ready(false);
 			var sql = X.modelBuilder.collectSQL(c);
 			var json = X.sql.makeSelect(sql);
 			env.send(json, function(data) { env.writeRecord(c, sql.used, data) });
-		}
+		}*/
 		return c;
 	},
 	onSendError: X.log,
@@ -154,8 +186,10 @@
 				.then(responseHandle, onerror)
 				.done();
 	},
-	interval: 300,
-	timeout: 10*1000
+	interval: 1000,
+	timeout: 10*1000,
+	generateAllKeys: true,
+	logPhpMessage: false
 }
 X.server = (function(env) {
 	return {
@@ -187,8 +221,9 @@ X.server = (function(env) {
 			var re = /\{"result":.*$/g;
 			if(answer = data.match(re)) {
 				var warning;
-				if(warning = data.replace(re,"").replace(/\s+$/g,"")) 
-					console.log(warning);
+				if(env.logPhpMessage)
+					if(warning = data.replace(re,"").replace(/\s+$/g,"")) 
+						console.log(warning);
 				var ansObj = JSON.parse(answer[0]);
 				if(ansObj.errors) 
 					throw ansObj.errors;
@@ -210,3 +245,6 @@ X.server = (function(env) {
 		}
 	}
 })(X.DBdefaultEnv);
+X.utils = (function(env) {
+	
+})(X.DBdefaultEnv)

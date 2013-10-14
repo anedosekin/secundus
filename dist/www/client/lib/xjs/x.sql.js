@@ -1,8 +1,11 @@
 X.sql = (function() {
 var rez = {
-	node:function(node) {
-		if(!node) return 'error';
-		return node.parent ? (node.parent.alias+'.'+node.$.name) : node;
+	node:function(elm) {
+		if(!elm) return 'error';
+		return elm.node ? (elm.node.alias+'.'+elm.$.name) : elm;
+	},
+	table_id: function (node) {
+		return node.$$.name + ' ' + node.alias;
 	},
 	collectJoins: function(table_node, link) {
 		// T1->T2->T3
@@ -13,40 +16,45 @@ var rez = {
 			var rel = table_node[i];
 			if(rel && rel.joins) { //it's rel
 				for(var j in rel.joins) { //it's rel params
-					var conds = rel.joins[j].relkey.general;
+					var conds = rel.filter.gerenal( j );
 					ret.push(' LEFT OUTER JOIN ');
 					ret.push(this.collectJoins(rel.joins[j], link));
 					ret.push(' ON '+conds.where);
 					for(var k=0;k<conds.link.length;++k)
-						link.push(conds.link[k]);
+						link.push(this.prepareLink(conds.link[k]));
 				}
 			}
 		}
-		function table_id(node) {
-			return node.$$.name + ' ' + node.alias;
-		}
+		
 		
 		if(ret.length == 0) {
 			//no subjoins -> return table as it is
-			return table_id(table_node);
+			return this.table_id(table_node);
 		}
-		ret.unshift(table_id(table_node)); // if we have joins, add table to first element in join sequence
+		ret.unshift(this.table_id(table_node)); // if we have joins, add table to first element in join sequence
 		return '('+ret.join('')+')';
 	},
 	/*
 		All quotes supplied in values
 	*/
-	keyCondition: function(key, cut) {
-		var rez = [];
+	keyCondition: function(key, link) {
+		var where = [];
 		for(var i in key) {
 			var name = i;
 			var value = key[i];
-			rez.push(name + '=?');
-			cut.push(value);
+			where.push(name + '=?');
+			link.push(this.prepareLink(value));
 		}
-		return rez.join(' AND ');
+		return where.join(' AND ');
 	},
-	makeSelect: function(table_node, oid) {
+	prepareLink:function(link) {
+		if(X.isObject(link)) {
+			if(link.field)
+				return { DATA: link, INSEL: true }
+		} else
+			return { DATA: link}
+	},
+	makeSelect: function(table_node, filter, oid) {
 		/*
 		statement=
 		{
@@ -65,59 +73,85 @@ var rez = {
 			sql.oid = oid;
 		//fields
 		var fields = [];
-		X.modelBuilder.collectUsage(table_node, fields);
+		var subselects = [];
+		var s = 0;
+		X.modelBuilder.collectUsage(table_node, fields, subselects);
 		for(var i = 0; i < fields.length; ++i) {
-			if(fields[i].select) {
-				sql.FIELDS.push(fields[i].select);
+			if(fields[i].append) {
+				sql.FIELDS.push(subselects[ s++ ]);
 			} else {
-				sql.FIELDS.push(fields[i].node.alias+"."+fields[i].elem.$.name);
+				sql.FIELDS.push(fields[i].node.alias+"."+fields[i].$.name);
 			}
 		}
 		//from
 		sql.FROM = X.sql.collectJoins(table_node, sql.LINK);
 		//where
 		sql.WHERE = [];
-		if(table_node.relkey.particular) {
-			var c = table_node.relkey.particular;
-			sql.WHERE.push( c.where );
-			for(var i=0;i<c.link.length;++i) {
-				sql.LINK.push(c.link[i]);
+		if(filter) {
+			sql.WHERE.push( filter.where );
+			for(var i=0;i<filter.link.length;++i) {
+				sql.LINK.push(this.prepareLink(filter.link[i]));
 			}
 		}
-		//sql.WHERE = [table_node.where];
-		//var link = table_node.link ? table_node.link() : [];
-		//for(var i=0;i<link.length;++i) {
-		//	sql.LINK.push(link[i]);
-		//}
-		return sql;
+		return sql.FIELDS.length && { sql: sql, dist: fields };
 	},
-	makeUpserte: function(object) {
+	addField: function( sql, name, val ) {
+		var field = {};
+		field[name] = "?";
+		sql.FIELDS.unshift( field );
+		if(X.isEmpty( val ))
+			sql.LINK.unshift(this.prepareLink( null ));
+		else
+			sql.LINK.unshift(this.prepareLink( val ));
+		
+	},
+	makeUpserte: function( key ) {
 		/*
 		object = { 
 					table: qe.keyObject.$.name, 
-					key: qe.keyObject.DBKeyValue,
+					key: qe.keyObject,
 					oid: X.OID(qe.keyObject)
 					values:{name:value, name:value}
 				}
 		*/
-		var sql = { oid: object.oid, TYPE:undefined, FIELDS:undefined, FROM: object.table + ' a', WHERE:undefined, LINK:[] };
-		if(object.values) {
-			sql.FIELDS = [];
-			for(var i in object.values) {
-				var field = {};
-				field[i] = '?';
-				sql.FIELDS.push(field);
-				if(X.isEmpty(object.values[i]))
-					sql.LINK.push(null);
-				else
-					sql.LINK.push(object.values[i]);
+		var sql = { oid: X.OID(key), TYPE:'INSERT', FIELDS:[], FROM: key.table_name +' a', WHERE:undefined, LINK:[] };
+		if(key.values) {
+			sql.TYPE = key._destroy ? 'DELETE' : 'UPDATE';
+			sql.WHERE = [ key.values.where ];
+			for(var i=0;i<key.values.link.length;++i) {
+				sql.LINK.push(this.prepareLink(key.values.link[i]));
 			}
-			sql.TYPE = object.key ? 'UPDATE' : 'INSERT';
 		}
-		if(object.key) {
-			sql.WHERE = [this.keyCondition(object.key, sql.LINK)];
-			if(!object.values) 
-				sql.TYPE = 'DELETE';
+		return sql;
+	},
+	makeUpserte2: function(key, values, oid) {
+		/*
+		object = { 
+					table: qe.keyObject.$.name, 
+					key: qe.keyObject,
+					oid: X.OID(qe.keyObject)
+					values:{name:value, name:value}
+				}
+		*/
+		var sql = { oid: oid, TYPE:'INSERT', FIELDS:undefined, FROM: key.table_name +' a', WHERE:undefined, LINK:[] };
+		if(values) {
+			sql.FIELDS = [];
+			for(var i in values) {
+				var field = {};
+				field[i] = "?";
+				sql.FIELDS.push( field );
+				if(X.isEmpty( values[i] ))
+					sql.LINK.push(this.prepareLink( null ));
+				else
+					sql.LINK.push(this.prepareLink( values[i] ));
+			}
+		}
+		if(key.values) {
+			sql.TYPE = values ? 'UPDATE' : 'DELETE';
+			sql.WHERE = [ key.values.where ];
+			for(var i=0;i<key.values.link.length;++i) {
+				sql.LINK.push(this.prepareLink(key.values.link[i]));
+			}
 		}
 		return sql;
 	},
@@ -127,7 +161,7 @@ var rez = {
 		for(var i=0;i<com.FIELDS.length;++i) {
 			var fld = com.FIELDS[i];
 			for(var name in fld) {
-				vals[name] = com.LINK[i];
+				vals[name] = com.LINK[i].DATA;
 			}
 		}
 		return vals;

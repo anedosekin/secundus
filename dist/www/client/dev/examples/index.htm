@@ -53,66 +53,86 @@ width:6em;
 <table border="1">
 <thead></thead>
 <tbody data-bind="foreach: streets">
-	<!--tr data-bind="openform: '#streets_form', modal: true, inline: true"-->
-	<tr>
-	<td>
-		<div data-bind="choose: mail_service">
-			<div data-bind="click: show, visible:!choosing()">Почта?</div>
-			<div data-bind="visible:choosing() && mailoffices.sync()">
+	<tr data-bind="openform: '#streets_form', modal: true, inline: true">
+	<td style="color:red">
+		<div data-bind="choose: city_id().country().capital_city()">
+			<div data-bind="click: $.show, visible:!$.choosing(), text: city_name"></div>
+			<div data-bind="visible: $.choosing()">
 				<table>
 				<thead></thead>
-				<tbody data-bind="foreach:mailoffices">
-				<tr data-bind="click: select, use:office_name"><td data-bind="text:building().street_name._value">
+				<tbody data-bind="foreach:$.cities">
+				<tr data-bind="click: $.select, updatable: capital"><td data-bind="text:city_name"><td data-bind="text:capital">
 				</tbody>
 				</table>
 			</div>
 		</div>
-	<td>
-		<div data-bind="with: mail_service()">
-			<span data-bind="text:office_name"></span><span data-bind="text:building().street_name._value"></span>
+	<td data-bind="with:city_id().country().capital_city()" style="color:blue"><span data-bind="text:city_name"></span><span data-bind="text:capital"></span>
+	<!--td><input data-bind="value:mail_service().building().street_name._value">
+		<input data-bind="value:mail_service().building().city_id"-->
+	<!--td>
+	<div data-bind="choose: mail_service()">
+		<div data-bind="click: show, visible:!choosing()">Выберите для улицы почтовое отделение</div>
+		<div data-bind="visible: choosing()">
+			<table>
+			<thead></thead>
+			<tbody data-bind="foreach:mailoffices">
+			<tr data-bind="click: select, use:office_name"><td data-bind="text:building().street_name._value">
+			</tbody>
+			</table>
 		</div>
-	<td>
-		<div data-bind="choose: city_id().country().capital_city">
-			<div data-bind="click: show, visible:!choosing()">Столица?</div>
-			<div data-bind="visible:choosing() && cities.sync()">
-				<table>
-				<thead></thead>
-				<tbody data-bind="foreach:cities">
-				<tr data-bind="click: select, updatable: capital"><td data-bind="text:city_name"><td data-bind="text:capital">
-				</tbody>
-				</table>
-			</div>
-		</div>
-	<td data-bind="with:city_id().country().capital_city()"><span data-bind="text:city_name"></span><span data-bind="text:capital"></span>
-	<td><input data-bind="value:mail_service().building().street_name._value">
-		<input data-bind="value:mail_service().building().city_id">
+	</div-->
+	<td><input data-bind="value:mail_service._value">
+	<td data-bind="text:mail_service().office_name">
 	<td><input data-bind="value:city_id._value">
+	<!--td>Дома<table><tbody data-bind="foreach: buildings"><tr><td data-bind="text:id"><td data-bind="text:building_number"></tbody></table-->
 	<td><input data-bind="value:street_name">
 	<td><input data-bind="value:city_id().country._value">
 	<td><input data-bind="value:city_id().city_name">
 	<button data-bind="click:destroy">delete</button>
 </tbody>
 </table>
-<p><button data-bind="click:streets.addNewLine">Добавить</button><button data-bind="click:streets.refresh">Обновить</button></p>
+<p><button data-bind="click:streets.append">Добавить</button><button data-bind="click:streets.refresh">Обновить</button></p>
 </div>
 <div id="streets_form">
 	<div style="background-color:white;border:1px solid gray">
-		<p><span>Название улицы: </span><input data-bind="value:street_name"></p>
-		<p>
-			<div data-bind="choose: city_id">
-				<div data-bind="click: show, visible:!choosing()">Город:</div>
-				<div data-bind="visible:choosing() && cities.sync()">
-					<table>
+		<div><span>Название улицы: </span><input data-bind="value:street_name"></div>
+		<div><span>Город: </span>
+			<span data-bind="choose: city_id()">
+				<span data-bind="click: $.show, visible:!$.choosing(), text: city_name"></span>
+				<span data-bind="visible:$.choosing()">
+					<table style="display:inline-table">
 					<thead></thead>
-					<tbody data-bind="foreach:cities">
-					<tr data-bind="click: select, use:id"><td data-bind="text:city_name">
+					<tbody data-bind="foreach:$.cities">
+					<tr><td data-bind="click: $.select, use:id">Выбрать<td data-bind="text:city_name"><td data-bind="openform:'#city_form'"><span>Редактировать</span>
 					</tbody>
 					</table>
-				</div>
-			</div>
-		</p>
-		<p><span>Число населения: </span><input data-bind="value:street_population"></p>
-		<p><button data-bind="click: close, clickBubble: false">Закрыть</button></p>
+				</span>
+			</span>
+		</div>
+		<div><span>Число населения: </span><input data-bind="value:street_population"></div>
+		<div><button data-bind="click: $.close">Закрыть</button></div>
+	</div>
+</div>
+<div id="city_form">
+	<div style="background-color:white;border:1px solid gray">
+		<div><span>id: </span><input data-bind="value:id"></div>
+		<div><span>Название города: </span><input data-bind="value:city_name"></div>
+		<div><span>Столичный: </span><span data-bind="text:capital"></span></div>
+		<div>
+			<span>Страна: </span>
+			<span data-bind="choose: country()">
+				<span data-bind="click: $.show, visible:!$.choosing(), text: country_name"></span>
+				<span data-bind="visible:$.choosing()">
+					<table style="display:inline-table">
+					<thead></thead>
+					<tbody data-bind="foreach:$.countries">
+					<tr data-bind="click: $.select"><td data-bind="text:country_name">
+					</tbody>
+					</table>
+				</span>
+			</span>
+		</div>
+		<div><button data-bind="click: $.close">Закрыть</button></div>
 	</div>
 </div>
 <pre id="json" style="background-color:lightgreen"></pre>
@@ -126,20 +146,22 @@ function Init() {
 	//patchModel - observables creating
 	//Z.extend(metaModel['streets']['mail_service'], { throttle:100 } );
 	//patchTemplate - observable created, fix templates
-	Z.context('choose', function(dom, binds) {
+	/*Z.context('choose', function(dom, binds) {
 		//this is context
 		//$data - value
 		//$parent - value context
-		var rel = this['$data'];
-		Z.updatable(rel);//make relation updatable
+		dom.setAttribute("ctrl", 1)
+		var rel = this['$data'].parent();
+		var rel_node = this['$data'];
+		rel.boundAsUpdatable = true;
 		function appendix() {
 			var self = this;
 			self.show = function() {//only after applyBindings is executed
-				self[rel.$$.name].sendSelect();
+				self[rel_node.$$.name].sendSelect();
 				self.choosing(true);
 			}
 			self.select = function(table_node) {
-				Z.choose( rel, table_node );
+				Z.choose( rel, rel_node, table_node );
 				self.hide();
 			}
 			self.hide = function() {
@@ -151,7 +173,7 @@ function Init() {
 		ko.utils.extend(this, new appendix() );
 		//returns dom element where apply this context
 	} );
-	
+	*/
 	var M = X.runModel.multi(metaModel['streets']);
 	ko.applyBindings(M, document.querySelector('[templ_table="streets"]'));
 	X.runModel.sendSelect(M);
