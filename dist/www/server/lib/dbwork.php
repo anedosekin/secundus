@@ -357,7 +357,9 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 				{
 					if (!isset($prevflds[$i][JS_CMDTYPE])) 
 					{
-						$v=array_values($prevflds[$i])[0];// column name in prev select
+						$v="";
+						if (is_array($prevflds[$i])) $v=array_values($prevflds[$i])[0];// column name in prev select
+						else $v=$prevflds[$i];
 						if($v==$ldat[JS_LINK_DATA]) {$linknum=$i;break;}		
 					}
 					else $countinsels++;// v resultatah net eshe kolonki s rez. vlojennogo selecta
@@ -365,8 +367,9 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 				if ($linknum!=-1) $bval=$prevrezrow[$linknum-$countinsels];
 				else 
 				{
-					logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
-					return null;
+					//logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
+					//return null;
+					throw new Exception("Not found linked data: ".$ldat[JS_LINK_DATA],-1);
 				}
 			}			
 			if ($sid!="" && isset($ldat[JS_LINK_ADDSID])) $bval.=$sid;
