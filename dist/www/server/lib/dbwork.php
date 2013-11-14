@@ -199,14 +199,22 @@ function logMsg($txt,$type="",$data=null,$errcode=-1,$count=0)
 	if ($type==LOG_PRINT) $jresult['echo'][]=$txt;
 }
 //-------- save and exit ---
-function endScript($isbin=false)
+function endScript($isbin=false,$contheader="")
 {
 	global $jresult;
-	global $requestOk;
-	if (!$isbin) header('Content-Type: application/json; charset=utf-8');
+	global $requestOk;	
 	if ($requestOk)	header("HTTP/1.1 200 Ok");
 	else header("HTTP/1.1 400 Bad Request");
-	echo json_encode($jresult);
+	if (!$isbin) 
+	{
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode($jresult);
+	}
+	else 
+	{
+		header($contheader);
+		echo $jresult;
+	}	
 	die;
 }
 //------ db prepear ------
@@ -387,15 +395,30 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 			else $stmt->bindValue($num,$bval);
 			$num++;
 		}
-		// vmesto print_r($stmt->queryString); vot tebe
+		// vmesto print_r($stmt->queryString);
 		logMsg($stmt->queryString,LOG_PRINT,$curcom);
+		$needcommit=false;
+		// oracle blobs transactions
+		if ($db->dialect=='oci' && ($dat[JS_CMDTYPE]==JS_INSERT || $dat[JS_CMDTYPE]==JS_UPDATE)) $needcommit=true;
+		if ($needcommit) $db->beginTransaction();
 		if ($stmt->execute())
 		{			
 			if ($dat[JS_CMDTYPE]==JS_SELECT)
 			{
 			// PDO::SQLSRV_ENCODING_BINARY may be need
-				if ($prevflds==0)	$result=$stmt->fetchAll(PDO::FETCH_NUM);
-				else $result[]= $stmt->fetchAll(PDO::FETCH_NUM);
+				if ($prevflds==0)	
+				{
+					// this fetching fix oci bug fetchall with BLOB
+					while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $result[]=$tmprez;
+					//$result=$stmt->fetchAll(PDO::FETCH_NUM);			
+				}
+				else 
+				{
+					//$result[]= $stmt->fetchAll(PDO::FETCH_NUM);
+					$tmparr=null;
+					while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $tmparr[]=$tmprez;
+					$result[]=$tmparr;						
+				}
 				$resultcount=count($result);
 			}
 			else $resultcount=$stmt->rowCount();			
@@ -404,7 +427,8 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 		{
 			if ($prevresult==0) logMsg("Exec error.".$stmt->errorInfo()[2],LOG_ERR_COMM,$curcom,$stmt->errorInfo()[0]);
 			$errorSQL=true;
-		}	
+		}
+		if ($needcommit) $db->commit();
 	}
 	if (isset($dat[JS_FIELDS]))
 	{
