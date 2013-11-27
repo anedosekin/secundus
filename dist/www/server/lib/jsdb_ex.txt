@@ -35,7 +35,7 @@ INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 
 {
   "commands":[
-  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
+  {"TYPE":"INSERT","FROM":"rmn_exp","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
   "LINK":[{"DATA":"HHH"},{"DATA":"222"}]}
  ]
 }
@@ -45,14 +45,14 @@ INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 {
   "commands":[
   {"TYPE":"GENSID","LINK":[{"DATA":"pfff"}]},
-  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
+  {"TYPE":"INSERT","FROM":"rmn_exp","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
   "LINK":[{"DATA":"HHH","ADDSID":true},{"DATA":"222"}]}
   ]
 }
 Ответ:
 {"result":{"commands":[
 {"TYPE":"GENSID","LINK":[{"DATA":"pfff"}],"RESULTSET":["pfff27"],"SUCCESS":true,"ROWS":0},
-{"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
+{"TYPE":"INSERT","FROM":"rmn_exp","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],
 "LINK":[{"DATA":"HHH","ADDSID":true},{"DATA":"222"}],"SUCCESS":true,"ROWS":1}
 ]}}
 
@@ -60,7 +60,7 @@ INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 
 {
   "commands":[
-  {"TYPE":"INSERT","FROM":"rmn_exp ex","FIELDS":[{"intdata":"?"},{"txtdata":"?"},{"blobdata":"?"}],
+  {"TYPE":"INSERT","FROM":"rmn_exp","FIELDS":[{"intdata":"?"},{"txtdata":"?"},{"blobdata":"?"}],
   "LINK":[{"DATA":"5"},{"DATA":"blob text"},{"DATA":"text.txt","ISFILE":true}]}
   ]
 }
@@ -70,11 +70,11 @@ INSERT INTO rmn_exp (txtdata, intdata) VALUES (?, ?)
 ==================================================================
 DELETE
 
-DELETE FROM rmn_exp ex WHERE intdata=?
+DELETE FROM rmn_exp WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"DELETE","FROM":"rmn_exp ex","WHERE":["intdata=?"],"LINK":[{"DATA":"222"}]}
+ {"TYPE":"DELETE","FROM":"rmn_exp","WHERE":["intdata=?"],"LINK":[{"DATA":"222"}]}
 ]
 }
 ==================================================================
@@ -84,7 +84,7 @@ UPDATE rmn_exp ex SET txtdata = ?, intdata = ? WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"UPDATE","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"WHERE":["intdata=?"],
+ {"TYPE":"UPDATE","FROM":"rmn_exp","FIELDS":[{"txtdata":"?"},{"intdata":"?"}],"WHERE":["intdata=?"],
  "LINK":[{"DATA":"RRR"},{"DATA":"111"},{"DATA":"222"}]}
 ]
 }
@@ -93,7 +93,7 @@ blob
 
 {
  "commands":[
- {"TYPE":"UPDATE","FROM":"rmn_exp ex","FIELDS":[{"txtdata":"?"},{"blobdata":"?"}],"WHERE":["intdata=?"],
+ {"TYPE":"UPDATE","FROM":"rmn_exp","FIELDS":[{"txtdata":"?"},{"blobdata":"?"}],"WHERE":["intdata=?"],
  "LINK":[{"DATA":"new blolb"},{"DATA":"tttt.txt","ISFILE":true},{"DATA":"5"}]}
 ]
 }
@@ -101,25 +101,27 @@ blob
 ==================================================================
 SELECT
 
-SELECT txtdata AS txtinf, intdata AS intinf FROM rmn_exp ex  WHERE intdata=?
+SELECT txtdata AS txtinf, intdata AS intinf FROM rmn_exp  WHERE intdata=?
 
 {
  "commands":[
- {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],
+ {"TYPE":"SELECT","FROM":"rmn_exp","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],
  "WHERE":["intdata=?"],"LINK":[{"DATA":"222"}]}
 ]
 }
 Ответ:
-{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],
+{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp","FIELDS":[{"txtinf":"txtdata"},{"intinf":"intdata"}],
 "WHERE":["intdata=?"],"LINK":["222"],"RESULTSET":[{"txtinf":"HHH","intinf":"222"},{"txtinf":"HHH","intinf":"222"}],
 "SUCCESS":true,"ROWS":2}]}}
 Сами данные находятся в массиве RESULTSET.
+
+---------------------------
 
 Вложенный select
 
 {
  "commands":[
- {"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel ex",
+ {"TYPE":"SELECT","FROM":"rmn_exp","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel",
  "FIELDS":[{"idd":"id"},{"info":"txtinfo"},{"just":"justtxt"}],"WHERE":["intdata=?"],
  "LINK":[{"DATA":"intdata","INSEL":true}]},{"txtinf":"txtdata"},{"intinf":"intdata"}],
  "WHERE":["intdata=?"],"LINK":[{"DATA":"3"}]}
@@ -127,9 +129,32 @@ SELECT txtdata AS txtinf, intdata AS intinf FROM rmn_exp ex  WHERE intdata=?
 }
 
 Ответ:
-{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp ex","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel ex",
+{"result":{"commands":[{"TYPE":"SELECT","FROM":"rmn_exp","FIELDS":[{"TYPE":"SELECT","FROM":"rmn_insel",
 "FIELDS":[{"idd":"id"},{"info":"txtinfo"},{"just":"justtxt"}],"WHERE":["intdata=?"],
 "LINK":[{"DATA":"intdata","INSEL":true}]},{"txtinf":"txtdata"},{"intinf":"intdata"}],
 "WHERE":["intdata=?"],"LINK":[{"DATA":"3"}],
-"RESULTSET":[[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"aaa","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"bbb","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ccc","3"],[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ggg","3"]],"SUCCESS":true,"ROWS":4}]}}
+"RESULTSET":[[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"aaa","3"],
+[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"bbb","3"],
+[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ccc","3"],
+[[["3","info3","txt3"],["27","info27","txt27"],["26","info26","info26"]],"ggg","3"]],"SUCCESS":true,"ROWS":4}]}}
 
+---------------------------
+BLOB
+---------------------------
+Для получения блоба файлом используется селект, в команду добавляется поле с информцией о том что надо
+получить файл. 
+"GETBLOB":{"MIMEMAIN":"image","MIMESUB":"jpeg"}
+
+{
+ "commands":[
+ {"TYPE":"SELECT","FROM":"rmn_exp","FIELDS":[{"blob":"blobdata"}],
+ "WHERE":["intdata=?"],"LINK":[{"DATA":"111}],"GETBLOB":{"MIMEMAIN":"image","MIMESUB":"jpeg"}}
+]
+}
+
+Далее эту команду надо urlencode-ить и передать в url в параметре CMD.
+Примерный вид
+http://127.0.0.1:8080/lib_link/dbwork.php?CMD=%7B%0A%20%22commands%22%3A%5B%0A%20%7B%22TYPE%22%3A%22SELECT%22%2C%22
+FROM%22%3A%22rmn_exp%22%2C%22FIELDS%22%3A%5B%7B%22blob%22%3A%22blobdata%22%7D%5D%2C%0A%20%22WHERE%22%3A%5B%22intdata
+%3D%3F%22%5D%2C%22LINK%22%3A%5B%7B%22DATA%22%3A%22111%22%7D%5D%2C%22GETBLOB%22%3A%7B%22MIMEMAIN%22%3A%22image
+%22%2C%22MIMESUB%22%3A%22jpeg%22%7D%7D%0A%5D%0A%7D

@@ -4,6 +4,8 @@ iconv_set_encoding("internal_encoding", "UTF-8");
 iconv_set_encoding("input_encoding", "UTF-8");
 iconv_set_encoding("output_encoding", "UTF-8");
 //----------------------
+define("GET_CMD", "CMD"); 
+//----------------------
 define ("LOG_ERR_COMM","ERR_COM");
 define ("LOG_ERR_SYS","ERR_SYS");
 define ("LOG_COM_OK","COM_OK");
@@ -14,7 +16,36 @@ define ("MSG_ERR_CODE","SQLSTATE");
 define ("MSG_EXEC_OK","SUCCESS");
 define ("MSG_ROW_COL","ROWS");
 
-//----------------------
+define('JS_CMDTYPE', 'TYPE');
+define('JS_SELECT', 'SELECT');
+define('JS_INSERT', 'INSERT');
+define('JS_UPDATE', 'UPDATE');
+define('JS_DELETE', 'DELETE');
+define('JS_GENSID', 'GENSID');
+define('JS_RESULTSET','RESULTSET');
+
+define('JS_FIELDS', 'FIELDS');
+
+define('JS_TABLES', 'FROM');
+define('JS_WHERE', 'WHERE');
+define('JS_ORDER', 'ORDER');
+define('JS_GROUP', 'GROUP');
+
+define('JS_LINK', 'LINK');
+define('JS_LINK_DATA','DATA');
+define ('JS_LINK_INC','INSEL');
+define ('JS_LINK_FILE','ISFILE');
+define ('JS_LINK_ADDSID','ADDSID');
+
+define ('JS_GETBLOB','GETBLOB');
+define('JS_BLOB_MIME','MIMEMAIN');
+define('JS_BLOB_MIMESUB','MIMESUB');
+
+//define('JS_BIN_MIME','MIME');
+
+
+//-------------------------
+
 $jresult=json_decode('{"result":{"commands":[]}}',true);
 $requestOk=true;
 $curcom=null;
@@ -44,27 +75,6 @@ cfg_parse_roles(explode("\n", <<<ROLES
 	.c: all
 ROLES
 ));
-
-define('JS_CMDTYPE', 'TYPE');
-define('JS_SELECT', 'SELECT');
-define('JS_INSERT', 'INSERT');
-define('JS_UPDATE', 'UPDATE');
-define('JS_DELETE', 'DELETE');
-define('JS_GENSID', 'GENSID');
-define('JS_RESULTSET','RESULTSET');
-
-define('JS_FIELDS', 'FIELDS');
-
-define('JS_TABLES', 'FROM');
-define('JS_WHERE', 'WHERE');
-define('JS_ORDER', 'ORDER');
-define('JS_GROUP', 'GROUP');
-
-define('JS_LINK', 'LINK');
-define('JS_LINK_DATA','DATA');
-define ('JS_LINK_INC','INSEL');
-define ('JS_LINK_FILE','ISFILE');
-define ('JS_LINK_ADDSID','ADDSID');
 
 function compose_select($cmd, $links = null) {
 	/*
@@ -199,22 +209,22 @@ function logMsg($txt,$type="",$data=null,$errcode=-1,$count=0)
 	if ($type==LOG_PRINT) $jresult['echo'][]=$txt;
 }
 //-------- save and exit ---
-function endScript($isbin=false,$contheader="")
+function endScript($isblob=false,$mime="",$rezout=null)
 {
 	global $jresult;
 	global $requestOk;	
 	if ($requestOk)	header("HTTP/1.1 200 Ok");
 	else header("HTTP/1.1 400 Bad Request");
-	if (!$isbin) 
+	if (!$isblob)		
 	{
 		header('Content-Type: application/json; charset=utf-8');
-		echo json_encode($jresult);
+		echo json_encode($jresult);		
 	}
 	else 
 	{
-		header($contheader);
-		echo $jresult;
-	}	
+		header('Content-Type:'.$mime.';');
+		fpassthru($rezout);
+	}
 	die;
 }
 //------ db prepear ------
@@ -341,7 +351,6 @@ function resTrans (&$var)
 }
 //------- execute commands -------
 // examples!!!!! here!!!!
-
 function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 {
 	global $errorSQL; //change to exception catch outside loop
@@ -373,12 +382,7 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 					else $countinsels++;// v resultatah net eshe kolonki s rez. vlojennogo selecta
 				}					
 				if ($linknum!=-1) $bval=$prevrezrow[$linknum-$countinsels];
-				else 
-				{
-					//logMsg("Not found linked data: ".$ldat[JS_LINK_DATA],LOG_ERR_COMM,$curcom,-1);
-					//return null;
-					throw new Exception("Not found linked data: ".$ldat[JS_LINK_DATA],-1);
-				}
+				else throw new Exception("Not found linked data: ".$ldat[JS_LINK_DATA],-1);
 			}			
 			if ($sid!="" && isset($ldat[JS_LINK_ADDSID])) $bval.=$sid;
 			if (isset($ldat[JS_LINK_FILE]))
@@ -406,20 +410,36 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 			if ($dat[JS_CMDTYPE]==JS_SELECT)
 			{
 			// PDO::SQLSRV_ENCODING_BINARY may be need
-				if ($prevflds==0)	
+				
+				if (isset($dat[JS_GETBLOB]))
 				{
-					// this fetching fix oci bug fetchall with BLOB
-					while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $result[]=$tmprez;
-					//$result=$stmt->fetchAll(PDO::FETCH_NUM);			
+					$mime="image/jpeg";
+					if (isset($dat[JS_GETBLOB][JS_BLOB_MIME])) $mime=$dat[JS_GETBLOB][JS_BLOB_MIME].'/'.$dat[JS_GETBLOB][JS_BLOB_MIMESUB];
+					$blbrez=null;
+					$stmt->bindColumn(1,$blbrez, PDO::PARAM_LOB);
+					$stmt->fetch(PDO::FETCH_BOUND);
+					if ($blbrez) endScript(true,$mime,$blbrez);
+					else throw new Exception("Error blob getting",-1);
+						
 				}
 				else 
 				{
-					//$result[]= $stmt->fetchAll(PDO::FETCH_NUM);
-					$tmparr=null;
-					while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $tmparr[]=$tmprez;
-					$result[]=$tmparr;						
-				}
-				$resultcount=count($result);
+					// if not blob
+					if ($prevflds==0)
+					{
+						// this fetching fix oci bug fetchall with BLOB
+						while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $result[]=$tmprez;
+						//$result=$stmt->fetchAll(PDO::FETCH_NUM);
+					}
+					else
+					{
+						//$result[]= $stmt->fetchAll(PDO::FETCH_NUM);
+						$tmparr=null;
+						while ($tmprez=$stmt->fetch(PDO::FETCH_NUM)) if ($tmprez) $tmparr[]=$tmprez;
+						$result[]=$tmparr;
+					}
+					$resultcount=count($result);
+				}				
 			}
 			else $resultcount=$stmt->rowCount();			
 		}
@@ -485,6 +505,7 @@ if (isset($_SERVER['HTTP_CONTENT_TYPE']))
 		$jdata=json_decode($GLOBALS['HTTP_RAW_POST_DATA'],true);
 	}
 }
+if (isset($_GET[GET_CMD])) $jdata=json_decode($_GET[GET_CMD],true);
 if ($jdata==NULL){
 	logMsg("JSON parse error",LOG_ERR_SYS);endScript();
 }
