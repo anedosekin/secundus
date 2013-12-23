@@ -120,7 +120,50 @@ function compose_select($cmd, $links = null) {
   return Select($cmd);
 }
 
-function compose_insert($cmd) {
+// for oracle only
+// get blob field name and duplicate blob link 
+// fist use of blob, driver replace for "EMPTY_BLOB()"
+// but we need duplicate link data for "RETURNING field INTO ?"
+function getBFieldaddLink(&$cmd)
+{
+	$rez=null;
+	$lnkdata=null;
+	$ind=0;
+	// search field name for blob info in links
+	foreach ($cmd[JS_LINK] as $lnk) 
+	{
+		if (isset($lnk[JS_LINK_FILE])) 
+		{
+			$findx=0;			
+			foreach($cmd[JS_FIELDS] as $fld)
+			{
+				if (count($fld)>1 || !is_string(current($fld))) throw new Exception("Error format fields for insert or update. Too many args.",-1);
+				foreach ($fld as $fkey=>$ff) 
+					if ($ff=="?") 
+						{				
+							if ($findx==$ind) 
+							{
+								$rez=$fkey;
+								break;
+							}
+							$findx++;
+						}										
+			}
+			$lnkdata=$lnk;
+			break;
+		}
+		$ind++;
+	}
+	if ($rez===null)  throw new Exception("Error. Field not found for OCI insert or update",-1);
+	if ($lnkdata) $cmd[JS_LINK][]=$lnkdata;
+	return $rez; 
+}
+
+function compose_insert($cmd,$db) {
+	$ociend="";
+	// RETURNING был отловлен фильтром комманд, пока не ясно что с этим делать
+	// суету вокруг этого пока не удаляю
+	//if ($db->dialect=="oci") $ociend="RETURNING ".getBFieldaddLink($cmd)." INTO ?";
 	$flds = array();
 	foreach($cmd[JS_FIELDS] as $fldpair) {
 		foreach($fldpair as $fld => $expr)
@@ -130,7 +173,7 @@ function compose_insert($cmd) {
 	$flds = implode(', ', $flds);
 	$vals = implode(', ', $vals);
 	$main_table = $cmd[JS_TABLES];
-	$cmd = "INSERT INTO $main_table ($flds) VALUES ($vals)";
+	$cmd = "INSERT INTO $main_table ($flds) VALUES ($vals)".$ociend;
 	return Insert($cmd);
 }
 
@@ -142,6 +185,10 @@ function compose_delete($cmd) {
 }
 
 function compose_update($cmd, $dbh) {
+	$ociend="";
+	// RETURNING был отловлен фильтром комманд, пока не ясно что с этим делать
+	// суету вокруг этого пока не удаляю
+	//if ($db->dialect=="oci") $ociend="RETURNING ".getBFieldaddLink($cmd)." INTO ?";
 	$set = array();
 	foreach($cmd[JS_FIELDS] as $fldpair) {
 		foreach($fldpair as $fld => $expr)
@@ -150,7 +197,7 @@ function compose_update($cmd, $dbh) {
 	$set = implode(', ', $set);
 	$from = $cmd[JS_TABLES];
 	$where = make_where($cmd);
-	$cmd = "UPDATE $from SET $set WHERE $where";
+	$cmd = "UPDATE $from SET $set WHERE $where".$ociend;
 	return Update($cmd);
 }
 
@@ -165,10 +212,10 @@ function make_where($cmd) {
 	return $where;
 }
 
-function make_command($cmd){
+function make_command($cmd,$db){
 	if($cmd[JS_CMDTYPE] == JS_SELECT) return compose_select($cmd);
-	if($cmd[JS_CMDTYPE] == JS_INSERT) return compose_insert($cmd);
-	if($cmd[JS_CMDTYPE] == JS_UPDATE) return compose_update($cmd);
+	if($cmd[JS_CMDTYPE] == JS_INSERT) return compose_insert($cmd,$db);
+	if($cmd[JS_CMDTYPE] == JS_UPDATE) return compose_update($cmd,$db);
 	if($cmd[JS_CMDTYPE] == JS_DELETE) return compose_delete($cmd);
 }
 
@@ -456,7 +503,7 @@ function execSQL($stmt, $dat, $db, $prevresult=0, $prevflds=0)
 		{
 			if (isset($fld[JS_CMDTYPE]))
 			{
-				$nextstmt=make_command($fld);
+				$nextstmt=make_command($fld,$db);
 				$rz=execSQL($nextstmt, $fld, $db, $result,$dat[JS_FIELDS]);
 				//echo "\n";print_r($result[$j]);echo "\n";print_r($result[$j]);
 				foreach ($result as $j => &$res) array_splice($res,$numforresult,0, [$rz[$j]] );
@@ -555,7 +602,7 @@ try
 				if ($dat[JS_CMDTYPE]!=JS_GENSID)
 				{
 					$errorSQL=false;
-					$stmtcom=make_command($dat);
+					$stmtcom=make_command($dat,$db);
 					$dat[JS_RESULTSET]=execSQL($stmtcom,$dat,$db);					
 				}							
 			}
